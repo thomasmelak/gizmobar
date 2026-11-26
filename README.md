@@ -1,5 +1,7 @@
 # Gizmobar
 
+<img src="Resources/AppIcon/AppIcon-1024.png" width="128" alt="Gizmobar icon">
+
 A fast, native macOS status bar written in Swift. A panel on every display,
 AeroSpace workspaces, rich now playing, 3D models, and TypeScript plugins.
 
