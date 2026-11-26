@@ -108,7 +108,7 @@ private struct WorldClockRow: View {
             Spacer(minLength: 16)
             Text(clock.timeZone.map { ClockText.format(now, clock.format, zone: $0) } ?? "unknown zone")
                 .monospacedDigit()
-            Text(clock.timeZone.map { ClockText.abbreviation($0, at: now) } ?? "")
+            Text(clock.abbreviation(at: now))
                 .foregroundStyle(Color(hex: t.workspaceIcon))
                 .frame(minWidth: 40, alignment: .leading)
         }

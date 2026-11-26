@@ -83,8 +83,10 @@ import Testing
     }
 
     @Test func zoneAbbreviationsLikeDate() {
-        #expect(ClockText.abbreviation(TimeZone(identifier: "America/New_York")!, at: now) == "EST")
-        #expect(ClockText.abbreviation(TimeZone(identifier: "UTC")!, at: now) == "UTC")
+        #expect(WorldClock(zone: "America/New_York").abbreviation(at: now) == "EST")
+        #expect(WorldClock(zone: "UTC").abbreviation(at: now) == "UTC")
+        #expect(WorldClock(zone: "Etc/UTC").abbreviation(at: now) == "UTC")
+        #expect(ClockText.inline(now, WorldClock(zone: "UTC"), locale: posix) == "21:11 UTC")
     }
 
     @Test func dayOffset() {
