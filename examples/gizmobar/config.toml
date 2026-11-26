@@ -1,0 +1,67 @@
+# ~/.config/gizmobar/config.toml
+# Every key is optional. `gizmo reload` applies changes.
+
+theme = "gizmo"
+launch_at_login = false
+
+[bar]
+position = "bottom"   # bottom | top
+height = 40           # matches AeroSpace's outer.bottom gap
+displays = "all"      # all | main
+margin = 6
+glass = true          # glass pills on a transparent bar
+
+[layout]
+left = ["logo", "workspaces"]
+center = ["front_app"]
+right = ["clock"]
+
+[logo]
+# image = "~/.config/gizmobar/logo.svg"   # default: the Gizmobar app icon
+# text = "tefer"                           # optional word mark after the image
+size = 24
+# tint = "accent"                          # tint single-color SVGs: "accent" or "#RRGGBB"
+# url = "https://example.com"              # opened on click
+# command = "open -a 'Activity Monitor'"   # or run this on click
+
+[clock]
+format = "EEE dd MMM HH:mm:ss"   # local time (Unicode date pattern)
+separator = " | "
+calendar = true                  # month calendar in the popover
+
+# World clocks: inline ones show on the bar after the local time,
+# all of them are listed in the popover (click the clock).
+[[clock.world]]
+zone = "America/New_York"
+inline = true                    # → "16:11 EST"
+
+[[clock.world]]
+zone = "UTC"
+label = "UTC"
+
+# [[clock.world]]
+# zone = "Africa/Addis_Ababa"
+# label = "Addis"
+# format = "HH:mm"
+
+[aerospace]
+mode = "subscribe"    # subscribe (0.21+) | callback | off
+max_app_icons = 8
+hide_empty = true                 # hide workspaces with no windows
+show_focused_when_empty = true    # ...except the one you're on
+move_workspace_to_monitor = false
+
+[icons]
+style = "custom"                  # or "system": real macOS icons everywhere
+custom_pack = "tefer-line"        # any folder in ~/.config/gizmobar/icon-packs/
+                                  # (or bundled); tried first, reloads live
+packs = ["sketchybar-app-font"]   # tried in order after the custom pack
+fallback = "system"                             # system | monogram | generic
+tint = "brand"                                  # brand | theme | none
+system_look = "mono"                            # mono | color, for fallback icons
+debug_fallbacks = false
+
+[icons.apps]
+"com.spotify.client" = { style = "system" }
+# "dev.zed.Zed" = { file = "~/icons/zed.svg" }
+# "com.tinyspeck.slackmacgap" = { glyph = "slack", color = "#e01e5a" }
