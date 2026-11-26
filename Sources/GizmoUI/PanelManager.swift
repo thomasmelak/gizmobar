@@ -15,6 +15,7 @@ final class BarPanel: NSPanel {
         hidesOnDeactivate = false
         isMovable = false
         isReleasedWhenClosed = false
+        acceptsMouseMovedEvents = true
     }
 
     override var canBecomeKey: Bool { false }

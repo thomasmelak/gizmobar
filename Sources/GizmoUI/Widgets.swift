@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import GizmoCore
 
@@ -29,7 +30,7 @@ struct WorkspacesWidget: View {
     var body: some View {
         let t = store.theme
         HStack(spacing: 6) {
-            ForEach(store.snapshot.workspaces) { ws in
+            ForEach(store.snapshot.visibleWorkspaces(store.config.aerospace)) { ws in
                 Pill(focused: ws.isFocused) {
                     HStack(spacing: 5) {
                         Text(ws.id)
@@ -41,8 +42,25 @@ struct WorkspacesWidget: View {
                     }
                 }
                 .contentShape(Rectangle())
+                .pointerCursor()
                 .onTapGesture { store.onFocusWorkspace?(ws.id) }
+                .transition(.scale(scale: 0.8).combined(with: .opacity))
                 .animation(.snappy(duration: 0.18), value: ws.isFocused)
+            }
+        }
+        .animation(.snappy(duration: 0.2), value: store.snapshot.visibleWorkspaces(store.config.aerospace).map(\.id))
+    }
+}
+
+extension View {
+    /// Shows the pointing-hand cursor while hovering. Uses continuous hover
+    /// and sets the cursor on every move, because the bar's panel never
+    /// becomes key and AppKit's cursor rects don't apply to it.
+    func pointerCursor() -> some View {
+        onContinuousHover { phase in
+            switch phase {
+            case .active: NSCursor.pointingHand.set()
+            case .ended: NSCursor.arrow.set()
             }
         }
     }

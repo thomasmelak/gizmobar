@@ -27,6 +27,8 @@ size = 24
 [aerospace]
 mode = "subscribe"    # subscribe (0.21+) | callback | off
 max_app_icons = 8
+hide_empty = true                 # hide workspaces with no windows
+show_focused_when_empty = true    # ...except the one you're on
 move_workspace_to_monitor = false
 
 [icons]

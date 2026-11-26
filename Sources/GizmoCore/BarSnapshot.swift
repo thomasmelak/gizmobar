@@ -86,6 +86,12 @@ public struct BarSnapshot: Sendable, Equatable {
         }
     }
 
+    /// The workspaces the bar shows, applying `hide_empty`.
+    public func visibleWorkspaces(_ settings: AeroSpaceSettings) -> [WorkspaceInfo] {
+        guard settings.hideEmpty else { return workspaces }
+        return workspaces.filter { !$0.apps.isEmpty || (settings.showFocusedWhenEmpty && $0.isFocused) }
+    }
+
     private mutating func rebuildWorkspaces() {
         var byWorkspace: [String: [AppRef]] = [:]
         for w in windows {

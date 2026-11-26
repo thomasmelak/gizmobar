@@ -24,6 +24,7 @@ struct LogoWidget: View {
         .scaleEffect(hovering ? 1.06 : 1)
         .animation(.snappy(duration: 0.15), value: hovering)
         .onHover { hovering = $0 }
+        .pointerCursor()
         .contentShape(Rectangle())
         .onTapGesture { activate(logo) }
         .help("Gizmobar")

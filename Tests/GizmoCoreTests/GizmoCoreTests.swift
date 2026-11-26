@@ -118,6 +118,18 @@ import Testing
         #expect(!s.workspaces[1].isFocused)
     }
 
+    @Test func hidesEmptyWorkspacesExceptFocused() {
+        var s = BarSnapshot()
+        s.apply(BarEvent(topic: Topic.aerospaceSnapshot, payload: [
+            "workspaces": ["1", "2", "3"],
+            "focused": "1",
+            "windows": [["window-id": 1, "workspace": "3", "app-bundle-id": "dev.zed.Zed", "app-name": "Zed"]],
+        ]))
+        #expect(s.visibleWorkspaces(AeroSpaceSettings()).map(\.id) == ["1", "3"])
+        #expect(s.visibleWorkspaces(AeroSpaceSettings(showFocusedWhenEmpty: false)).map(\.id) == ["3"])
+        #expect(s.visibleWorkspaces(AeroSpaceSettings(hideEmpty: false)).map(\.id) == ["1", "2", "3"])
+    }
+
     @Test func storesExternalTriggers() {
         var s = BarSnapshot()
         s.apply(BarEvent(topic: "vpn.status", payload: ["up": true]))

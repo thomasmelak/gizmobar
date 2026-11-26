@@ -127,12 +127,20 @@ public struct AeroSpaceSettings: Sendable, Equatable, Decodable {
     /// Old SketchyBar behaviour, now opt-in and never run mid-switch.
     public var moveWorkspaceToMonitor: Bool
     public var maxAppIcons: Int
+    /// Hide workspaces with no windows.
+    public var hideEmpty: Bool
+    /// Keep the focused workspace visible even when it's empty.
+    public var showFocusedWhenEmpty: Bool
 
-    public init(mode: Mode = .subscribe, binary: String? = nil, moveWorkspaceToMonitor: Bool = false, maxAppIcons: Int = 8) {
+    public init(mode: Mode = .subscribe, binary: String? = nil, moveWorkspaceToMonitor: Bool = false, maxAppIcons: Int = 8,
+                hideEmpty: Bool = true, showFocusedWhenEmpty: Bool = true)
+    {
         self.mode = mode
         self.binary = binary
         self.moveWorkspaceToMonitor = moveWorkspaceToMonitor
         self.maxAppIcons = maxAppIcons
+        self.hideEmpty = hideEmpty
+        self.showFocusedWhenEmpty = showFocusedWhenEmpty
     }
 
     public init(from decoder: Decoder) throws {
@@ -142,12 +150,16 @@ public struct AeroSpaceSettings: Sendable, Equatable, Decodable {
         binary = try c.decodeIfPresent(String.self, forKey: .binary)
         moveWorkspaceToMonitor = try c.decodeIfPresent(Bool.self, forKey: .moveWorkspaceToMonitor) ?? d.moveWorkspaceToMonitor
         maxAppIcons = try c.decodeIfPresent(Int.self, forKey: .maxAppIcons) ?? d.maxAppIcons
+        hideEmpty = try c.decodeIfPresent(Bool.self, forKey: .hideEmpty) ?? d.hideEmpty
+        showFocusedWhenEmpty = try c.decodeIfPresent(Bool.self, forKey: .showFocusedWhenEmpty) ?? d.showFocusedWhenEmpty
     }
 
     enum CodingKeys: String, CodingKey {
         case mode, binary
         case moveWorkspaceToMonitor = "move_workspace_to_monitor"
         case maxAppIcons = "max_app_icons"
+        case hideEmpty = "hide_empty"
+        case showFocusedWhenEmpty = "show_focused_when_empty"
     }
 }
 
