@@ -13,7 +13,7 @@ public struct GizmoConfig: Sendable, Equatable, Decodable {
 
     public init(
         bar: BarSettings = .init(),
-        theme: String = "tefer",
+        theme: String = "gizmo",
         layout: Layout = .init(),
         icons: IconSettings = .init(),
         aerospace: AeroSpaceSettings = .init(),

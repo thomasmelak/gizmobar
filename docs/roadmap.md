@@ -7,7 +7,7 @@ reaches parity.
 
 - [x] SwiftPM package, app bundle script, `gizmo` CLI over a Unix socket
 - [x] Event bus with coalescing, observable store
-- [x] Config (`config.toml`), Tefer theme ported from SketchyBar
+- [x] Config (`config.toml`), default Gizmo theme (Tefer colors) ported from SketchyBar
 - [x] Panel per display, glass background, rebuild on display changes
 - [x] AeroSpace provider on `aerospace subscribe`, callback fallback
 - [x] Workspace pills with app icons, front app, clock

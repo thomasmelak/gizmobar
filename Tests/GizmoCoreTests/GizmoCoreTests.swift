@@ -12,13 +12,14 @@ import Testing
     @Test func emptyConfigUsesDefaults() throws {
         let c = try GizmoConfig.parse("")
         #expect(c == GizmoConfig())
+        #expect(c.theme == "gizmo")
         #expect(c.bar.position == .bottom)
         #expect(c.bar.height == 40)
     }
 
     @Test func parsesExample() throws {
         let c = try GizmoConfig.parse("""
-        theme = "tefer"
+        theme = "gizmo"
         launch_at_login = true
 
         [bar]

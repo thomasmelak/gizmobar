@@ -1,7 +1,7 @@
 # ~/.config/gizmobar/config.toml
 # Every key is optional. `gizmo reload` applies changes.
 
-theme = "tefer"
+theme = "gizmo"
 launch_at_login = false
 
 [bar]

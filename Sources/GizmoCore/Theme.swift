@@ -43,9 +43,9 @@ public struct Theme: Sendable, Equatable, Decodable {
         case fontSize = "font_size"
     }
 
-    /// The Tefer theme, built in so the bar works with no theme files.
-    public static let tefer = Theme(
-        name: "Tefer",
+    /// The default Gizmo theme (Tefer colors), built in so the bar works with no theme files.
+    public static let gizmo = Theme(
+        name: "Gizmo",
         itemBackground: "#0d053399", itemBorder: "#2a1a6e", icon: "#6e89ff", label: "#e6f4ff",
         workspaceBackground: "#0d053373", workspaceIcon: "#7a74b8",
         workspaceFocusBackground: "#1d0f5c99", workspaceFocusBorder: "#b77cff", workspaceFocusIcon: "#b77cff",
@@ -70,11 +70,11 @@ public struct Theme: Sendable, Equatable, Decodable {
         self.cornerRadius = cornerRadius; self.font = font; self.fontSize = fontSize
     }
 
-    /// Missing keys fall back to the Tefer theme, so a theme file only needs
+    /// Missing keys fall back to the Gizmo theme, so a theme file only needs
     /// the colors it changes.
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        let t = Theme.tefer
+        let t = Theme.gizmo
         func s(_ k: CodingKeys, _ d: String) throws -> String { try c.decodeIfPresent(String.self, forKey: k) ?? d }
         name = try s(.name, t.name)
         itemBackground = try s(.itemBackground, t.itemBackground)
@@ -101,7 +101,7 @@ public struct Theme: Sendable, Equatable, Decodable {
         let url = dir.appendingPathComponent("\(name).toml")
         guard let text = try? String(contentsOf: url, encoding: .utf8),
               let theme = try? TOMLDecoder().decode(Theme.self, from: text)
-        else { return .tefer }
+        else { return .gizmo }
         return theme
     }
 }

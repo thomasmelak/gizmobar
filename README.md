@@ -57,7 +57,7 @@ exec-on-workspace-change = ['gizmo', 'trigger', 'aerospace.workspace']
 
 ```
 config.toml          # layout, bar, icons, aerospace (see examples/gizmobar)
-themes/<name>.toml   # design tokens; missing keys fall back to Tefer
+themes/<name>.toml   # design tokens; missing keys fall back to Gizmo
 icon-packs/<id>/     # extra or replacement icon packs
 plugins/<id>/        # TypeScript plugins (runtime arrives in Phase 4)
 ```

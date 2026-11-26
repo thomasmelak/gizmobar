@@ -1,6 +1,7 @@
-# Tefer: Persian Indigo background, Ultramarine Blue icons, light violet accent.
-# Ported from sketchybar themes/tefer.sh with the glass alphas from colors.sh.
-name = "Tefer"
+# Gizmo: the default theme. Persian Indigo background, Ultramarine Blue icons,
+# light violet accent (the Tefer colors, ported from sketchybar themes/tefer.sh
+# with the glass alphas from colors.sh).
+name = "Gizmo"
 item_bg = "#0d053399"
 item_border = "#2a1a6e"
 icon = "#6e89ff"
