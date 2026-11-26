@@ -23,6 +23,18 @@ public struct IconPack: Sendable, Equatable {
         public var stroke: Double?
         public var font: String?
         public var license: String?
+
+        public init(id: String, name: String, kind: Kind, grid: Double? = nil, stroke: Double? = nil,
+                    font: String? = nil, license: String? = nil)
+        {
+            self.id = id
+            self.name = name
+            self.kind = kind
+            self.grid = grid
+            self.stroke = stroke
+            self.font = font
+            self.license = license
+        }
     }
 
     public let manifest: Manifest

@@ -36,6 +36,7 @@ gizmo trigger vpn.status up=true    # push your own events onto the bus
 gizmo reload                        # re-read config, theme and icon packs
 gizmo state
 gizmo icons missing                 # open apps the icon packs don't cover
+gizmo icons init my-icons           # start a custom icon pack
 ```
 
 ## AeroSpace
@@ -60,8 +61,12 @@ plugins/<id>/        # TypeScript plugins (runtime arrives in Phase 4)
 ```
 
 App icons resolve per bundle ID: per-app override, then `style = "system"`
-for real macOS icons everywhere, otherwise the packs in order (Tefer Line,
-then sketchybar-app-font), then the fallback you pick.
+for real macOS icons everywhere, otherwise your custom pack, then the other
+packs in order, then the fallback you pick.
+
+The custom pack is whichever pack `custom_pack` names (Tefer Line by
+default). Start your own with `gizmo icons init my-icons`, drop
+`<bundle-id>.svg` files into it, and the bar picks them up live, no reload.
 
 ## Layout
 

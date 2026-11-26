@@ -22,7 +22,7 @@ public struct ResolvedIcon: Sendable, Equatable {
 }
 
 /// Picks an app's icon in the plan's order:
-/// per-app override → (style = system ⇒ system icon) → packs in order → fallback.
+/// per-app override → (style = system ⇒ system icon) → custom pack → other packs → fallback.
 /// Matching is by bundle ID; pack `aliases.json` maps names for helpers and web apps.
 public struct IconResolver: Sendable {
     public var settings: IconSettings
@@ -53,7 +53,7 @@ public struct IconResolver: Sendable {
             return .init(choice: .system(bundleID: bundleID, mono: false), source: "system-style")
         }
 
-        for id in settings.packs {
+        for id in settings.packOrder {
             guard let pack = packs[id], !bundleID.isEmpty else { continue }
             if let url = pack.svgURL(for: bundleID) {
                 return .init(choice: .svg(url, tint: tint(brand)), source: pack.id)
@@ -76,7 +76,7 @@ public struct IconResolver: Sendable {
 
     /// Brand color from the first pack (in configured order) that knows the app.
     public func brandColor(for bundleID: String) -> String? {
-        for id in settings.packs {
+        for id in settings.packOrder {
             if let c = packs[id]?.colors[bundleID] { return c }
         }
         return nil
@@ -90,7 +90,7 @@ public struct IconResolver: Sendable {
     }
 
     private func alias(for appName: String) -> String? {
-        for id in settings.packs {
+        for id in settings.packOrder {
             if let b = packs[id]?.aliases[appName] { return b }
         }
         return nil
@@ -98,7 +98,7 @@ public struct IconResolver: Sendable {
 
     private func glyphPack(named name: String?) -> IconPack? {
         if let name { return packs[name] }
-        return settings.packs.lazy.compactMap { packs[$0] }.first { $0.manifest.kind == .font }
+        return settings.packOrder.lazy.compactMap { packs[$0] }.first { $0.manifest.kind == .font }
     }
 
     private func glyphString(_ glyph: String, pack: IconPack) -> String {

@@ -1,9 +1,13 @@
 # Icon packs
 
-Bundled packs, tried in the order listed in `[icons].packs`. Packs in
-`~/.config/gizmobar/icon-packs/` are loaded too and win on id clashes.
+Bundled packs. Packs in `~/.config/gizmobar/icon-packs/` are loaded too and
+win on id clashes. The pack named by `[icons].custom_pack` is tried first,
+then `[icons].packs` in order. Any pack can be the custom one, and every
+change under `icon-packs/` (a new SVG, an edited color) applies live.
 
-- `tefer-line/`: the custom pack. Single-color SVGs on a 24 grid with a
+Start a new one with `gizmo icons init <id>`.
+
+- `tefer-line/`: the default custom pack. Single-color SVGs on a 24 grid with a
   1.5 stroke (Phosphor Light style), named by bundle ID, `fill="currentColor"`.
   `colors.json` carries the brand colors from SketchyBar's `app_colors.sh`;
   the first 27 icons to draw are exactly those apps.

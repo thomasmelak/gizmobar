@@ -13,6 +13,7 @@ USAGE
   gizmo reload                    reload config, theme and icon packs
   gizmo state                     print what the bar currently shows
   gizmo icons missing             open apps the icon packs don't cover
+  gizmo icons init <id>           start a custom icon pack in ~/.config/gizmobar/icon-packs
   gizmo version
 
 Plugin scaffolding (gizmo new) and the debug overlay (gizmo debug)
@@ -63,6 +64,25 @@ case "trigger":
     guard let topic = args.first else { fail("usage: gizmo trigger <topic> [k=v ...]") }
     let r = send(.init(command: "trigger", args: [topic], payload: payload(from: args.dropFirst())))
     if !r.ok { fail(r.message ?? "failed") }
+case "icons" where args.first == "init":
+    guard args.count == 2 else { fail("usage: gizmo icons init <id>") }
+    let dir = GizmoPaths.iconPacksDir.appendingPathComponent(args[1], isDirectory: true)
+    let fm = FileManager.default
+    if fm.fileExists(atPath: dir.path) { fail("gizmo: \(dir.path) already exists") }
+    do {
+        try fm.createDirectory(at: dir.appendingPathComponent("icons"), withIntermediateDirectories: true)
+        let manifest = IconPack.Manifest(id: args[1], name: args[1], kind: .svg, grid: 24, stroke: 1.5)
+        let enc = JSONEncoder()
+        enc.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try enc.encode(manifest).write(to: dir.appendingPathComponent("pack.json"))
+        try Data("{}\n".utf8).write(to: dir.appendingPathComponent("colors.json"))
+        try Data("{}\n".utf8).write(to: dir.appendingPathComponent("aliases.json"))
+    } catch { fail("gizmo: \(error)") }
+    print("""
+    created \(dir.path)
+    Drop <bundle-id>.svg files (fill="currentColor") into icons/; the bar picks them up live.
+    Use it with:  [icons] custom_pack = "\(args[1])"
+    """)
 case "reload", "state", "icons":
     let r = send(.init(command: command, args: args))
     if !r.ok { fail(r.message ?? "failed") }

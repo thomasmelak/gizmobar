@@ -22,6 +22,13 @@ public final class BarStore {
         self.icons = icons
     }
 
+    /// Swaps in a freshly loaded resolver and drops cached icon images, so
+    /// edited SVGs show up immediately.
+    public func invalidateIcons(_ resolver: IconResolver) {
+        IconCache.shared.invalidate()
+        icons = resolver
+    }
+
     public func apply(_ event: BarEvent) {
         snapshot.apply(event)
     }

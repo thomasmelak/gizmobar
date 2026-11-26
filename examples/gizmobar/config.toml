@@ -22,8 +22,10 @@ max_app_icons = 8
 move_workspace_to_monitor = false
 
 [icons]
-style = "tefer-line"                            # or "system": real macOS icons
-packs = ["tefer-line", "sketchybar-app-font"]   # tried in order
+style = "custom"                  # or "system": real macOS icons everywhere
+custom_pack = "tefer-line"        # any folder in ~/.config/gizmobar/icon-packs/
+                                  # (or bundled); tried first, reloads live
+packs = ["sketchybar-app-font"]   # tried in order after the custom pack
 fallback = "system"                             # system | monogram | generic
 tint = "brand"                                  # brand | theme | none
 system_look = "mono"                            # mono | color, for fallback icons

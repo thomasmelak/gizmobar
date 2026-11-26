@@ -42,8 +42,11 @@ display layout changes. Background is `NSGlassEffectView` on macOS 26 and
 ## Icons
 
 `IconResolver` is pure and tested. Order: per-app override → `style =
-system` → packs in configured order → fallback (`system` mono/color,
-`monogram`, `generic`). `GizmoUI.IconCache` rasterises each image once.
+system` → the custom pack (`custom_pack`, any pack id) → other packs in
+order → fallback (`system` mono/color, `monogram`, `generic`).
+`GizmoUI.IconCache` rasterises each image once. `ConfigWatcher` (FSEvents
+on `~/.config/gizmobar`) reloads packs and drops the cache whenever an icon
+file changes, and reloads config/theme on edit.
 
 ## Plugins (Phase 4)
 

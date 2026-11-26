@@ -3,6 +3,12 @@ import Testing
 @testable import GizmoCore
 
 @Suite struct ConfigTests {
+    @Test func emptyCustomPackDisablesIt() throws {
+        let c = try GizmoConfig.parse("[icons]\ncustom_pack = \"\"")
+        #expect(c.icons.customPack == nil)
+        #expect(c.icons.packOrder == ["sketchybar-app-font"])
+    }
+
     @Test func emptyConfigUsesDefaults() throws {
         let c = try GizmoConfig.parse("")
         #expect(c == GizmoConfig())
@@ -25,6 +31,7 @@ import Testing
 
         [icons]
         style = "system"
+        custom_pack = "my-icons"
         fallback = "monogram"
 
         [icons.apps]
@@ -38,6 +45,7 @@ import Testing
         #expect(c.launchAtLogin)
         #expect(c.layout.center == ["front_app"])
         #expect(c.icons.style == .system)
+        #expect(c.icons.packOrder == ["my-icons", "sketchybar-app-font"])
         #expect(c.icons.fallback == .monogram)
         #expect(c.icons.apps["dev.zed.Zed"]?.file == "~/icons/zed.svg")
         #expect(c.aerospace.mode == .callback)
@@ -158,6 +166,19 @@ import Testing
         #expect(resolver(s).resolve(bundleID: "com.spotify.client", appName: "Spotify").source == "override")
         #expect(resolver(s).resolve(bundleID: "dev.zed.Zed", appName: "Zed").choice
             == .svg(URL(fileURLWithPath: "/tmp/zed.svg"), tint: "#ffffff"))
+    }
+
+    @Test func anyPackCanBeTheCustomOne() {
+        var s = IconSettings()
+        s.customPack = "sketchybar-app-font"
+        s.packs = ["tefer-line"]
+        // Zed is only in the font pack; Spotify only in tefer-line.
+        #expect(resolver(s).resolve(bundleID: "dev.zed.Zed", appName: "Zed").source == "sketchybar-app-font")
+        #expect(resolver(s).resolve(bundleID: "com.spotify.client", appName: "Spotify").source == "tefer-line")
+
+        s.customPack = nil
+        s.packs = []
+        #expect(resolver(s).resolve(bundleID: "com.spotify.client", appName: "Spotify").isFallback)
     }
 
     @Test func aliasMapsNameToBundleID() {

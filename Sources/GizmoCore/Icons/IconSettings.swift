@@ -3,8 +3,8 @@ import Foundation
 /// `[icons]` in config.toml.
 public struct IconSettings: Sendable, Equatable, Decodable {
     public enum Style: String, Sendable, Decodable {
-        /// Use the icon packs (custom first), then the fallback.
-        case packs = "tefer-line"
+        /// Your custom pack first, then the other packs, then the fallback.
+        case custom
         /// Skip the packs and show real macOS icons everywhere.
         case system
     }
@@ -14,6 +14,11 @@ public struct IconSettings: Sendable, Equatable, Decodable {
     public enum SystemLook: String, Sendable, Decodable { case mono, color }
 
     public var style: Style
+    /// Id of your custom pack, a folder in `~/.config/gizmobar/icon-packs/`
+    /// (or bundled). Any pack can be the custom one; it's tried first and
+    /// reloaded live as you add or edit icons.
+    public var customPack: String?
+    /// Further packs, tried in order after the custom pack.
     public var packs: [String]
     public var fallback: Fallback
     public var tint: Tint
@@ -24,8 +29,9 @@ public struct IconSettings: Sendable, Equatable, Decodable {
     public var apps: [String: AppIconOverride]
 
     public init(
-        style: Style = .packs,
-        packs: [String] = ["tefer-line", "sketchybar-app-font"],
+        style: Style = .custom,
+        customPack: String? = "tefer-line",
+        packs: [String] = ["sketchybar-app-font"],
         fallback: Fallback = .system,
         tint: Tint = .brand,
         systemLook: SystemLook = .mono,
@@ -33,6 +39,7 @@ public struct IconSettings: Sendable, Equatable, Decodable {
         apps: [String: AppIconOverride] = [:]
     ) {
         self.style = style
+        self.customPack = customPack
         self.packs = packs
         self.fallback = fallback
         self.tint = tint
@@ -43,14 +50,27 @@ public struct IconSettings: Sendable, Equatable, Decodable {
 
     enum CodingKeys: String, CodingKey {
         case style, packs, fallback, tint, apps
+        case customPack = "custom_pack"
         case systemLook = "system_look"
         case debugFallbacks = "debug_fallbacks"
+    }
+
+    /// The custom pack followed by the other packs, without duplicates.
+    public var packOrder: [String] {
+        var seen = Set<String>()
+        return ([customPack].compactMap { $0 } + packs).filter { seen.insert($0).inserted }
     }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = IconSettings()
         style = try c.decodeIfPresent(Style.self, forKey: .style) ?? d.style
+        if c.contains(.customPack) {
+            customPack = try c.decodeIfPresent(String.self, forKey: .customPack)
+        } else {
+            customPack = d.customPack
+        }
+        if customPack?.isEmpty == true { customPack = nil }
         packs = try c.decodeIfPresent([String].self, forKey: .packs) ?? d.packs
         fallback = try c.decodeIfPresent(Fallback.self, forKey: .fallback) ?? d.fallback
         tint = try c.decodeIfPresent(Tint.self, forKey: .tint) ?? d.tint

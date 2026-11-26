@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var server: IPCServer?
     private var aerospace: AeroSpaceProvider!
     private var providers: [any Provider] = []
+    private var watcher: ConfigWatcher?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let config = loadConfig()
@@ -33,10 +34,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panels.start()
         startServer()
         updateLoginItem(config.launchAtLogin)
+
+        watcher = ConfigWatcher(root: GizmoPaths.configDir) { [weak self] changes in
+            guard let self else { return }
+            if changes.contains(.config) || changes.contains(.theme) { self.reload() }
+            else if changes.contains(.iconPacks) { self.reloadIcons() }
+        }
+        watcher?.start()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         server?.stop()
+        watcher?.stop()
     }
 
     // MARK: - Config
@@ -54,12 +63,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return IconResolver(settings: config.icons, packs: IconPack.loadAll(from: dirs))
     }
 
+    /// Re-reads icon packs only; called when an SVG or pack file changes.
+    private func reloadIcons() {
+        store.invalidateIcons(makeResolver(store.config))
+    }
+
     private func reload() {
         let config = loadConfig()
+        let layoutChanged = config.bar != store.config.bar || config.layout != store.config.layout
         store.config = config
         store.theme = Theme.load(named: config.theme)
-        store.icons = makeResolver(config)
-        panels.rebuild()
+        store.invalidateIcons(makeResolver(config))
+        if layoutChanged { panels.rebuild() }
         Task { await bus.publish(topic: Topic.configReloaded) }
     }
 
