@@ -19,8 +19,6 @@ struct BarView: View {
         }
         .padding(.horizontal, bar.margin)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(
-            GlassBackground(cornerRadius: 0, enabled: bar.glass)
-        )
+        // The bar itself is transparent; each pill carries its own glass.
     }
 }

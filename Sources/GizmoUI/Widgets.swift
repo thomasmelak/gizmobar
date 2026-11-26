@@ -2,7 +2,8 @@ import AppKit
 import SwiftUI
 import GizmoCore
 
-/// A pill: the shared container every widget sits in.
+/// A pill: the shared container every widget sits in. Each pill is its own
+/// piece of glass on an otherwise transparent bar, tinted with the theme.
 struct Pill<Content: View>: View {
     var focused = false
     @ViewBuilder var content: Content
@@ -10,13 +11,17 @@ struct Pill<Content: View>: View {
 
     var body: some View {
         let t = store.theme
+        let shape = RoundedRectangle(cornerRadius: t.cornerRadius, style: .continuous)
         content
             .padding(.horizontal, 10)
             .frame(height: store.config.bar.height - store.config.bar.margin * 2)
-            .background(
-                RoundedRectangle(cornerRadius: t.cornerRadius, style: .continuous)
-                    .fill(Color(hex: focused ? t.workspaceFocusBackground : t.itemBackground))
-            )
+            .background {
+                ZStack {
+                    GlassBackground(cornerRadius: t.cornerRadius, enabled: store.config.bar.glass)
+                    shape.fill(Color(hex: focused ? t.workspaceFocusBackground : t.itemBackground))
+                }
+                .clipShape(shape)
+            }
             .overlay(
                 RoundedRectangle(cornerRadius: t.cornerRadius, style: .continuous)
                     .strokeBorder(Color(hex: focused ? t.workspaceFocusBorder : t.itemBorder), lineWidth: 1)

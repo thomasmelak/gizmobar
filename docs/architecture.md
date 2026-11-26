@@ -36,8 +36,9 @@ coalesced timer only while something visible subscribes.
 
 `PanelManager` puts one borderless, non-activating `NSPanel` on each screen
 (or only the main one), joining all Spaces, and rebuilds them when the
-display layout changes. Background is `NSGlassEffectView` on macOS 26 and
-`NSVisualEffectView` before.
+display layout changes. The panel is transparent; each pill is its own
+piece of glass (`NSGlassEffectView` on macOS 26, `NSVisualEffectView`
+before) tinted with the theme.
 
 ## Icons
 

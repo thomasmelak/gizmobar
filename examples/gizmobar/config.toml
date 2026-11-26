@@ -9,7 +9,7 @@ position = "bottom"   # bottom | top
 height = 40           # matches AeroSpace's outer.bottom gap
 displays = "all"      # all | main
 margin = 6
-glass = true
+glass = true          # glass pills on a transparent bar
 
 [layout]
 left = ["logo", "workspaces"]

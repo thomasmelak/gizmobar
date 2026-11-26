@@ -66,6 +66,7 @@ public struct BarSettings: Sendable, Equatable, Decodable {
     public var height: Double
     public var displays: Displays
     public var margin: Double
+    /// Glass behind each pill. The bar between pills is always transparent.
     public var glass: Bool
 
     public init(position: Edge = .bottom, height: Double = 40, displays: Displays = .all, margin: Double = 6, glass: Bool = true) {
