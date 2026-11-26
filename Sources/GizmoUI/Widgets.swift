@@ -46,9 +46,7 @@ struct WorkspacesWidget: View {
                         }
                     }
                 }
-                .contentShape(Rectangle())
-                .pointerCursor()
-                .onTapGesture { store.onFocusWorkspace?(ws.id) }
+                .barAction { store.onFocusWorkspace?(ws.id) }
                 .transition(.scale(scale: 0.8).combined(with: .opacity))
                 .animation(.snappy(duration: 0.18), value: ws.isFocused)
             }
@@ -58,6 +56,22 @@ struct WorkspacesWidget: View {
 }
 
 extension View {
+    /// The one way to make something on the bar clickable: whole-frame hit
+    /// area, pointing-hand cursor on hover, and the action on click. Every
+    /// interactive element (built-in widgets, and plugin nodes with
+    /// `onClick` in Phase 4) goes through this, so the cursor is consistent.
+    func barAction(_ action: @escaping @MainActor () -> Void) -> some View {
+        contentShape(Rectangle())
+            .pointerCursor()
+            .onTapGesture { action() }
+    }
+
+    /// Like `barAction`, but only when there is an action.
+    @ViewBuilder
+    func barAction(_ action: (@MainActor () -> Void)?) -> some View {
+        if let action { barAction(action) } else { self }
+    }
+
     /// Shows the pointing-hand cursor while hovering. Uses continuous hover
     /// and sets the cursor on every move, because the bar's panel never
     /// becomes key and AppKit's cursor rects don't apply to it.

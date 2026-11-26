@@ -21,13 +21,15 @@ struct LogoWidget: View {
             }
         }
         .padding(.horizontal, 4)
-        .scaleEffect(hovering ? 1.06 : 1)
+        .scaleEffect(hovering && hasAction(logo) ? 1.06 : 1)
         .animation(.snappy(duration: 0.15), value: hovering)
         .onHover { hovering = $0 }
-        .pointerCursor()
-        .contentShape(Rectangle())
-        .onTapGesture { activate(logo) }
+        .barAction(hasAction(logo) ? { activate(logo) } : nil)
         .help("Gizmobar")
+    }
+
+    private func hasAction(_ logo: LogoSettings) -> Bool {
+        logo.url != nil || logo.command != nil
     }
 
     private func activate(_ logo: LogoSettings) {

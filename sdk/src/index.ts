@@ -64,6 +64,9 @@ export type Node =
   | { kind: "scene"; scene: SceneOptions }
   | { kind: "spacer" };
 
+// Any node with onClick (pill, row, scene, slider, toggle) shows the
+// pointing-hand cursor on hover; the host applies it, plugins don't need to.
+
 export interface RowOptions {
   icon?: string;
   label?: string;
