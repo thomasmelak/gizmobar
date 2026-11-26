@@ -21,10 +21,10 @@ struct LogoWidget: View {
             }
         }
         .padding(.horizontal, 4)
-        .scaleEffect(hovering && hasAction(logo) ? 1.06 : 1)
+        .scaleEffect(hovering ? 1.08 : 1)
+        .brightness(hovering ? 0.08 : 0)
         .animation(.snappy(duration: 0.15), value: hovering)
-        .onHover { hovering = $0 }
-        .barAction(hasAction(logo) ? { @MainActor in activate(logo) } : nil)
+        .barAction(onHover: { hovering = $0 }, hasAction(logo) ? { @MainActor in activate(logo) } : nil)
         .help("Gizmobar")
     }
 

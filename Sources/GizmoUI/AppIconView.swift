@@ -7,6 +7,9 @@ import GizmoCore
 struct AppIconView: View {
     let app: AppRef
     var size: CGFloat = 18
+    /// Replaces the icon's tint (used for hover). System icons can't be tinted
+    /// and are left as they are.
+    var tintOverride: String? = nil
     @Environment(BarStore.self) private var store
 
     var body: some View {
@@ -35,17 +38,17 @@ struct AppIconView: View {
         case .svg(let url, let tint):
             if let image = IconCache.shared.svg(url) {
                 Image(nsImage: image).resizable().renderingMode(.template)
-                    .foregroundStyle(Color(hex: tint ?? store.theme.icon))
+                    .foregroundStyle(Color(hex: tintOverride ?? tint ?? store.theme.icon))
             } else {
                 generic
             }
         case .glyph(let text, let font, let tint):
             Text(text)
                 .font(.custom(font, size: size * 0.9))
-                .foregroundStyle(Color(hex: tint ?? store.theme.icon))
+                .foregroundStyle(Color(hex: tintOverride ?? tint ?? store.theme.icon))
         case .monogram(let letter, let color):
             RoundedRectangle(cornerRadius: size * 0.25)
-                .fill(Color(hex: color ?? store.theme.workspaceIcon))
+                .fill(Color(hex: tintOverride ?? color ?? store.theme.workspaceIcon))
                 .overlay(Text(String(letter)).font(.system(size: size * 0.6, weight: .semibold)).foregroundStyle(.white))
         case .generic:
             generic

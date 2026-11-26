@@ -6,18 +6,19 @@ import GizmoCore
 struct ClockWidget: View {
     @Environment(BarStore.self) private var store
     @State private var showing = false
+    @State private var hovering = false
 
     var body: some View {
         let t = store.theme
         let clock = store.config.clock
-        Pill(focused: showing) {
+        Pill(focused: showing, hovered: hovering) {
             Text(ClockText.bar(store.snapshot.now, clock))
                 .font(.custom(t.font, size: t.fontSize + 1).monospacedDigit())
                 .foregroundStyle(Color(hex: t.label))
                 .lineLimit(1)
                 .fixedSize()
         }
-        .barAction { showing.toggle() }
+        .barAction(onHover: { hovering = $0 }) { showing.toggle() }
         .popover(isPresented: $showing, arrowEdge: store.config.bar.position == .bottom ? .top : .bottom) {
             ClockPopover().environment(store)
         }

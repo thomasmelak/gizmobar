@@ -29,9 +29,12 @@ public enum BackgroundCursor {
     }
 }
 
-/// Transparent to clicks; only tracks the pointer.
+/// Transparent to clicks; tracks the pointer, sets the cursor and reports
+/// hover. SwiftUI's own hover tracking isn't reliable in a panel of an app
+/// that's never active, so hover styling uses this too.
 final class PointerTrackingView: NSView {
-    var cursor: NSCursor = .pointingHand
+    var cursor: NSCursor? = .pointingHand
+    var onHover: ((Bool) -> Void)?
     private var area: NSTrackingArea?
 
     override func updateTrackingAreas() {
@@ -47,13 +50,32 @@ final class PointerTrackingView: NSView {
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
-    override func mouseEntered(with event: NSEvent) { cursor.set() }
-    override func mouseMoved(with event: NSEvent) { cursor.set() }
-    override func cursorUpdate(with event: NSEvent) { cursor.set() }
-    override func mouseExited(with event: NSEvent) { NSCursor.arrow.set() }
+    override func mouseEntered(with event: NSEvent) {
+        cursor?.set()
+        onHover?(true)
+    }
+
+    override func mouseMoved(with event: NSEvent) { cursor?.set() }
+    override func cursorUpdate(with event: NSEvent) { cursor?.set() }
+
+    override func mouseExited(with event: NSEvent) {
+        if cursor != nil { NSCursor.arrow.set() }
+        onHover?(false)
+    }
 }
 
 struct PointerArea: NSViewRepresentable {
-    func makeNSView(context: Context) -> PointerTrackingView { PointerTrackingView() }
-    func updateNSView(_ view: PointerTrackingView, context: Context) {}
+    var pointer = true
+    var onHover: ((Bool) -> Void)?
+
+    func makeNSView(context: Context) -> PointerTrackingView {
+        let v = PointerTrackingView()
+        updateNSView(v, context: context)
+        return v
+    }
+
+    func updateNSView(_ view: PointerTrackingView, context: Context) {
+        view.cursor = pointer ? .pointingHand : nil
+        view.onHover = onHover
+    }
 }
