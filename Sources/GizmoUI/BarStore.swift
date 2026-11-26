@@ -1,0 +1,37 @@
+import Foundation
+import Observation
+import GizmoCore
+
+/// The UI's view of the world. Events from the bus are applied to a pure
+/// `BarSnapshot`; SwiftUI observes the result. The bus already coalesces to
+/// about one flush per frame, so views redraw at most that often.
+@MainActor
+@Observable
+public final class BarStore {
+    public private(set) var snapshot = BarSnapshot()
+    public var config: GizmoConfig
+    public var theme: Theme
+    public var icons: IconResolver
+
+    /// Set by the app: runs when a workspace pill is clicked.
+    @ObservationIgnored public var onFocusWorkspace: (@MainActor (String) -> Void)?
+
+    public init(config: GizmoConfig, theme: Theme, icons: IconResolver) {
+        self.config = config
+        self.theme = theme
+        self.icons = icons
+    }
+
+    public func apply(_ event: BarEvent) {
+        snapshot.apply(event)
+    }
+
+    /// Feeds bus events into the store until the stream ends.
+    public func attach(to bus: EventBus) {
+        Task { @MainActor [weak self] in
+            for await event in await bus.subscribe() {
+                self?.apply(event)
+            }
+        }
+    }
+}

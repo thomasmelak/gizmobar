@@ -1,0 +1,21 @@
+# Tefer: Persian Indigo background, Ultramarine Blue icons, light violet accent.
+# Ported from sketchybar themes/tefer.sh with the glass alphas from colors.sh.
+name = "Tefer"
+item_bg = "#0d053399"
+item_border = "#2a1a6e"
+icon = "#6e89ff"
+label = "#e6f4ff"
+ws_bg = "#0d053373"
+ws_icon = "#7a74b8"
+ws_focus_bg = "#1d0f5c99"
+ws_focus_border = "#b77cff"
+ws_focus_icon = "#b77cff"
+accent = "#b77cff"
+popup_bg = "#0d0533b8"
+popup_border = "#b77cff"
+good = "#5fd38d"
+warn = "#ffc857"
+bad = "#ff5c7a"
+corner_radius = 10
+font = "SF Pro Text"
+font_size = 13

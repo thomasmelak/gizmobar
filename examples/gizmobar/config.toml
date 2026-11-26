@@ -1,0 +1,35 @@
+# ~/.config/gizmobar/config.toml
+# Every key is optional. `gizmo reload` applies changes.
+
+theme = "tefer"
+launch_at_login = false
+
+[bar]
+position = "bottom"   # bottom | top
+height = 40           # matches AeroSpace's outer.bottom gap
+displays = "all"      # all | main
+margin = 6
+glass = true
+
+[layout]
+left = ["workspaces"]
+center = ["front_app"]
+right = ["clock"]
+
+[aerospace]
+mode = "subscribe"    # subscribe (0.21+) | callback | off
+max_app_icons = 8
+move_workspace_to_monitor = false
+
+[icons]
+style = "tefer-line"                            # or "system": real macOS icons
+packs = ["tefer-line", "sketchybar-app-font"]   # tried in order
+fallback = "system"                             # system | monogram | generic
+tint = "brand"                                  # brand | theme | none
+system_look = "mono"                            # mono | color, for fallback icons
+debug_fallbacks = false
+
+[icons.apps]
+"com.spotify.client" = { style = "system" }
+# "dev.zed.Zed" = { file = "~/icons/zed.svg" }
+# "com.tinyspeck.slackmacgap" = { glyph = "slack", color = "#e01e5a" }
