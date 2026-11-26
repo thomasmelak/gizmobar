@@ -10,7 +10,8 @@ reaches parity.
 - [x] Config (`config.toml`), default Gizmo theme (Tefer colors) ported from SketchyBar
 - [x] Panel per display, glass background, rebuild on display changes
 - [x] AeroSpace provider on `aerospace subscribe`, callback fallback
-- [x] Logo (app icon by default, any image/text via `[logo]`), workspace pills with app icons, front app, clock
+- [x] Logo (app icon by default, any image/text via `[logo]`), workspace pills with app icons, front app
+- [x] Clock like the SketchyBar one, with world clocks (`[[clock.world]]`) and a calendar popover
 - [x] Icon resolver with overrides and fallback; Tefer Line and sketchybar-app-font packs
 - [ ] Verify on the Mac: build, panels on built-in + external display, subscribe stream
 - [ ] Focus workspaces over AeroSpace's socket instead of the CLI

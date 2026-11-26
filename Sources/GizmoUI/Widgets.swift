@@ -103,18 +103,6 @@ struct FrontAppWidget: View {
     }
 }
 
-struct ClockWidget: View {
-    @Environment(BarStore.self) private var store
-
-    var body: some View {
-        Pill {
-            Text(store.snapshot.now, format: .dateTime.weekday(.abbreviated).hour().minute())
-                .font(.custom(store.theme.font, size: store.theme.fontSize).monospacedDigit())
-                .foregroundStyle(Color(hex: store.theme.label))
-        }
-    }
-}
-
 /// Shown for ids in the layout that no built-in or plugin provides yet.
 struct MissingWidget: View {
     let id: String

@@ -24,6 +24,26 @@ size = 24
 # url = "https://example.com"              # opened on click
 # command = "open -a 'Activity Monitor'"   # or run this on click
 
+[clock]
+format = "EEE dd MMM HH:mm:ss"   # local time (Unicode date pattern)
+separator = " | "
+calendar = true                  # month calendar in the popover
+
+# World clocks: inline ones show on the bar after the local time,
+# all of them are listed in the popover (click the clock).
+[[clock.world]]
+zone = "America/New_York"
+inline = true                    # → "16:11 EST"
+
+[[clock.world]]
+zone = "UTC"
+label = "UTC"
+
+# [[clock.world]]
+# zone = "Africa/Addis_Ababa"
+# label = "Addis"
+# format = "HH:mm"
+
 [aerospace]
 mode = "subscribe"    # subscribe (0.21+) | callback | off
 max_app_icons = 8

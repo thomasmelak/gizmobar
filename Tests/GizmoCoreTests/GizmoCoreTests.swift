@@ -63,6 +63,54 @@ import Testing
     }
 }
 
+@Suite struct ClockTests {
+    let posix = Locale(identifier: "en_US_POSIX")
+    // 2026-11-26 21:11:31 UTC = Fri 27 Nov 00:11:31 in Addis Ababa, 16:11 EST
+    let now = Date(timeIntervalSince1970: 1_795_727_491)
+    let addis = TimeZone(identifier: "Africa/Addis_Ababa")!
+
+    @Test func defaultMatchesSketchyBar() {
+        let text = ClockText.bar(now, ClockSettings(), locale: posix, local: addis)
+        #expect(text == "Fri 27 Nov 00:11:31 | 16:11 EST")
+    }
+
+    @Test func labelsAndMultipleInlineClocks() {
+        let s = ClockSettings(format: "HH:mm", world: [
+            WorldClock(zone: "Europe/London", label: "LDN", inline: true),
+            WorldClock(zone: "Asia/Tokyo", inline: false),
+        ])
+        #expect(ClockText.bar(now, s, locale: posix, local: addis) == "00:11 | 21:11 LDN")
+    }
+
+    @Test func dayOffset() {
+        #expect(ClockText.dayOffset(now, WorldClock(zone: "America/New_York"), local: addis) == -1)
+        #expect(ClockText.dayOffset(now, WorldClock(zone: "Europe/Moscow"), local: addis) == 0)
+    }
+
+    @Test func parsesWorldClocks() throws {
+        let c = try GizmoConfig.parse("""
+        [clock]
+        format = "HH:mm"
+        [[clock.world]]
+        zone = "Asia/Tokyo"
+        label = "TYO"
+        inline = true
+        """)
+        #expect(c.clock.format == "HH:mm")
+        #expect(c.clock.world == [WorldClock(zone: "Asia/Tokyo", label: "TYO", inline: true)])
+        #expect(try GizmoConfig.parse("").clock.world == ClockSettings.defaultWorld)
+    }
+
+    @Test func monthGridStartsMonday() {
+        let g = MonthGrid(for: now, zone: addis, locale: posix)
+        #expect(g.title == "November 2026")
+        #expect(g.today == 27)
+        // 1 Nov 2026 is a Sunday: six blanks first.
+        #expect(g.weeks[0] == [nil, nil, nil, nil, nil, nil, 1])
+        #expect(g.weeks.count == 6)
+    }
+}
+
 @Suite struct ThemeTests {
     @Test func hexParsing() {
         #expect(RGBA(hex: "#ff0000") == RGBA(r: 1, g: 0, b: 0, a: 1))

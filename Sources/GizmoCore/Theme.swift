@@ -51,7 +51,7 @@ public struct Theme: Sendable, Equatable, Decodable {
         workspaceFocusBackground: "#1d0f5c99", workspaceFocusBorder: "#b77cff", workspaceFocusIcon: "#b77cff",
         accent: "#b77cff", popupBackground: "#0d0533b8", popupBorder: "#b77cff",
         good: "#5fd38d", warn: "#ffc857", bad: "#ff5c7a",
-        cornerRadius: 10, font: "SF Pro Text", fontSize: 13
+        cornerRadius: 10, font: "Kode Mono", fontSize: 12
     )
 
     public init(

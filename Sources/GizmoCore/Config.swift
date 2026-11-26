@@ -10,6 +10,7 @@ public struct GizmoConfig: Sendable, Equatable, Decodable {
     public var icons: IconSettings
     public var aerospace: AeroSpaceSettings
     public var logo: LogoSettings
+    public var clock: ClockSettings
     public var launchAtLogin: Bool
 
     public init(
@@ -19,6 +20,7 @@ public struct GizmoConfig: Sendable, Equatable, Decodable {
         icons: IconSettings = .init(),
         aerospace: AeroSpaceSettings = .init(),
         logo: LogoSettings = .init(),
+        clock: ClockSettings = .init(),
         launchAtLogin: Bool = false
     ) {
         self.bar = bar
@@ -27,11 +29,12 @@ public struct GizmoConfig: Sendable, Equatable, Decodable {
         self.icons = icons
         self.aerospace = aerospace
         self.logo = logo
+        self.clock = clock
         self.launchAtLogin = launchAtLogin
     }
 
     enum CodingKeys: String, CodingKey {
-        case bar, theme, layout, icons, aerospace, logo
+        case bar, theme, layout, icons, aerospace, logo, clock
         case launchAtLogin = "launch_at_login"
     }
 
@@ -44,6 +47,7 @@ public struct GizmoConfig: Sendable, Equatable, Decodable {
         icons = try c.decodeIfPresent(IconSettings.self, forKey: .icons) ?? d.icons
         aerospace = try c.decodeIfPresent(AeroSpaceSettings.self, forKey: .aerospace) ?? d.aerospace
         logo = try c.decodeIfPresent(LogoSettings.self, forKey: .logo) ?? d.logo
+        clock = try c.decodeIfPresent(ClockSettings.self, forKey: .clock) ?? d.clock
         launchAtLogin = try c.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? d.launchAtLogin
     }
 
