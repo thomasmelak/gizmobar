@@ -1,13 +1,22 @@
 PREFIX ?= $(HOME)/.local
 APP := build/Gizmobar.app
 
+# With only the Command Line Tools installed (no Xcode), SwiftPM doesn't put
+# swift-testing on the search path. Point it there so `make test` works.
+DEV_DIR := $(shell xcode-select -p 2>/dev/null)
+ifeq ($(findstring CommandLineTools,$(DEV_DIR)),CommandLineTools)
+CLT_FW := $(DEV_DIR)/Library/Developer/Frameworks
+TEST_FLAGS := -Xswiftc -F -Xswiftc $(CLT_FW) -Xlinker -F -Xlinker $(CLT_FW) \
+	-Xlinker -rpath -Xlinker $(CLT_FW) -Xlinker -rpath -Xlinker $(DEV_DIR)/Library/Developer/usr/lib
+endif
+
 .PHONY: build test app run install uninstall config clean
 
 build:
 	swift build
 
 test:
-	swift test
+	swift test $(TEST_FLAGS)
 
 app:
 	./scripts/bundle.sh

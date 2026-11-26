@@ -15,7 +15,9 @@ once per frame.
 
 ## Build and run
 
-Requires macOS 14+ (Liquid Glass on macOS 26) and Swift 6.
+Requires macOS 14+ (Liquid Glass on macOS 26) and Swift 6. The Command Line
+Tools are enough; use `make test` rather than plain `swift test` there, since
+it adds the swift-testing framework path that SwiftPM misses without Xcode.
 
 ```sh
 make test          # unit tests
