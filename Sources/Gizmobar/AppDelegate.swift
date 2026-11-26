@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var watcher: ConfigWatcher?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        BackgroundCursor.enable()
         let config = loadConfig()
         store = BarStore(config: config, theme: Theme.load(named: config.theme), icons: makeResolver(config))
         store.attach(to: bus)

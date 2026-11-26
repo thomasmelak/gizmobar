@@ -72,16 +72,9 @@ extension View {
         if let action { barAction(action) } else { self }
     }
 
-    /// Shows the pointing-hand cursor while hovering. Uses continuous hover
-    /// and sets the cursor on every move, because the bar's panel never
-    /// becomes key and AppKit's cursor rects don't apply to it.
+    /// Shows the pointing-hand cursor while hovering (see PointerCursor.swift).
     func pointerCursor() -> some View {
-        onContinuousHover { phase in
-            switch phase {
-            case .active: NSCursor.pointingHand.set()
-            case .ended: NSCursor.arrow.set()
-            }
-        }
+        overlay(PointerArea())
     }
 }
 
