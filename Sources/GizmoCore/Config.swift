@@ -9,6 +9,7 @@ public struct GizmoConfig: Sendable, Equatable, Decodable {
     public var layout: Layout
     public var icons: IconSettings
     public var aerospace: AeroSpaceSettings
+    public var logo: LogoSettings
     public var launchAtLogin: Bool
 
     public init(
@@ -17,6 +18,7 @@ public struct GizmoConfig: Sendable, Equatable, Decodable {
         layout: Layout = .init(),
         icons: IconSettings = .init(),
         aerospace: AeroSpaceSettings = .init(),
+        logo: LogoSettings = .init(),
         launchAtLogin: Bool = false
     ) {
         self.bar = bar
@@ -24,11 +26,12 @@ public struct GizmoConfig: Sendable, Equatable, Decodable {
         self.layout = layout
         self.icons = icons
         self.aerospace = aerospace
+        self.logo = logo
         self.launchAtLogin = launchAtLogin
     }
 
     enum CodingKeys: String, CodingKey {
-        case bar, theme, layout, icons, aerospace
+        case bar, theme, layout, icons, aerospace, logo
         case launchAtLogin = "launch_at_login"
     }
 
@@ -40,6 +43,7 @@ public struct GizmoConfig: Sendable, Equatable, Decodable {
         layout = try c.decodeIfPresent(Layout.self, forKey: .layout) ?? d.layout
         icons = try c.decodeIfPresent(IconSettings.self, forKey: .icons) ?? d.icons
         aerospace = try c.decodeIfPresent(AeroSpaceSettings.self, forKey: .aerospace) ?? d.aerospace
+        logo = try c.decodeIfPresent(LogoSettings.self, forKey: .logo) ?? d.logo
         launchAtLogin = try c.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? d.launchAtLogin
     }
 
@@ -92,7 +96,7 @@ public struct Layout: Sendable, Equatable, Decodable {
     public var center: [String]
     public var right: [String]
 
-    public init(left: [String] = ["workspaces"], center: [String] = ["front_app"], right: [String] = ["clock"]) {
+    public init(left: [String] = ["logo", "workspaces"], center: [String] = ["front_app"], right: [String] = ["clock"]) {
         self.left = left
         self.center = center
         self.right = right
@@ -145,4 +149,43 @@ public struct AeroSpaceSettings: Sendable, Equatable, Decodable {
         case moveWorkspaceToMonitor = "move_workspace_to_monitor"
         case maxAppIcons = "max_app_icons"
     }
+}
+
+/// `[logo]`: the mark at the start of the bar. With no `image` it shows the
+/// Gizmobar app icon.
+public struct LogoSettings: Sendable, Equatable, Decodable {
+    /// Path to an SVG, PNG or PDF. Single-color SVGs can be tinted.
+    public var image: String?
+    /// Optional text after the image, e.g. "tefer".
+    public var text: String?
+    public var size: Double
+    /// Tint for template images (`#RRGGBB`, or "accent"); nil keeps the colors.
+    public var tint: String?
+    /// Opened on click (any URL, e.g. a website or `x-apple.systempreferences:`).
+    public var url: String?
+    /// Run on click with /bin/sh when no `url` is set.
+    public var command: String?
+
+    public init(image: String? = nil, text: String? = nil, size: Double = 24, tint: String? = nil,
+                url: String? = nil, command: String? = nil)
+    {
+        self.image = image
+        self.text = text
+        self.size = size
+        self.tint = tint
+        self.url = url
+        self.command = command
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        image = try c.decodeIfPresent(String.self, forKey: .image)
+        text = try c.decodeIfPresent(String.self, forKey: .text)
+        size = try c.decodeIfPresent(Double.self, forKey: .size) ?? 24
+        tint = try c.decodeIfPresent(String.self, forKey: .tint)
+        url = try c.decodeIfPresent(String.self, forKey: .url)
+        command = try c.decodeIfPresent(String.self, forKey: .command)
+    }
+
+    enum CodingKeys: String, CodingKey { case image, text, size, tint, url, command }
 }

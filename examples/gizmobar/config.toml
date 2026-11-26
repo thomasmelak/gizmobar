@@ -12,9 +12,17 @@ margin = 6
 glass = true
 
 [layout]
-left = ["workspaces"]
+left = ["logo", "workspaces"]
 center = ["front_app"]
 right = ["clock"]
+
+[logo]
+# image = "~/.config/gizmobar/logo.svg"   # default: the Gizmobar app icon
+# text = "tefer"                           # optional word mark after the image
+size = 24
+# tint = "accent"                          # tint single-color SVGs: "accent" or "#RRGGBB"
+# url = "https://example.com"              # opened on click
+# command = "open -a 'Activity Monitor'"   # or run this on click
 
 [aerospace]
 mode = "subscribe"    # subscribe (0.21+) | callback | off

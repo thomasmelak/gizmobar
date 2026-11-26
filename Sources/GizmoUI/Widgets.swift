@@ -94,6 +94,7 @@ enum WidgetRegistry {
     @MainActor @ViewBuilder
     static func view(for id: String) -> some View {
         switch id {
+        case "logo": LogoWidget()
         case "workspaces": WorkspacesWidget()
         case "front_app": FrontAppWidget()
         case "clock": ClockWidget()

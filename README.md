@@ -10,7 +10,7 @@ processes. Here nothing on the render path starts a process: providers read
 macOS APIs in-process, push events onto one bus, and SwiftUI redraws at most
 once per frame.
 
-> Status: early scaffold (Phase 1). Workspaces, front app and clock work;
+> Status: early scaffold (Phase 1). Logo, workspaces, front app and clock work;
 > everything else is on the [roadmap](docs/roadmap.md).
 
 ## Build and run

@@ -13,6 +13,9 @@ import Testing
         let c = try GizmoConfig.parse("")
         #expect(c == GizmoConfig())
         #expect(c.theme == "gizmo")
+        #expect(c.layout.left == ["logo", "workspaces"])
+        #expect(c.logo.image == nil)
+        #expect(c.logo.size == 24)
         #expect(c.bar.position == .bottom)
         #expect(c.bar.height == 40)
     }
@@ -39,6 +42,11 @@ import Testing
         "com.spotify.client" = { style = "system" }
         "dev.zed.Zed" = { file = "~/icons/zed.svg" }
 
+        [logo]
+        image = "~/logo.svg"
+        text = "tefer"
+        tint = "accent"
+
         [aerospace]
         mode = "callback"
         max_app_icons = 5
@@ -49,6 +57,7 @@ import Testing
         #expect(c.icons.packOrder == ["my-icons", "sketchybar-app-font"])
         #expect(c.icons.fallback == .monogram)
         #expect(c.icons.apps["dev.zed.Zed"]?.file == "~/icons/zed.svg")
+        #expect(c.logo == LogoSettings(image: "~/logo.svg", text: "tefer", tint: "accent"))
         #expect(c.aerospace.mode == .callback)
         #expect(c.aerospace.maxAppIcons == 5)
     }

@@ -26,6 +26,7 @@ public final class BarStore {
     /// edited SVGs show up immediately.
     public func invalidateIcons(_ resolver: IconResolver) {
         IconCache.shared.invalidate()
+        LogoCache.shared.invalidate()
         icons = resolver
     }
 
