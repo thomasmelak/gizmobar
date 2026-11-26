@@ -24,7 +24,7 @@ struct LogoWidget: View {
         .scaleEffect(hovering && hasAction(logo) ? 1.06 : 1)
         .animation(.snappy(duration: 0.15), value: hovering)
         .onHover { hovering = $0 }
-        .barAction(hasAction(logo) ? { activate(logo) } : nil)
+        .barAction(hasAction(logo) ? { @MainActor in activate(logo) } : nil)
         .help("Gizmobar")
     }
 
