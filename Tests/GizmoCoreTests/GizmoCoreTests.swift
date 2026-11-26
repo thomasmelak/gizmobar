@@ -82,6 +82,11 @@ import Testing
         #expect(ClockText.bar(now, s, locale: posix, local: addis) == "00:11 | 21:11 LDN")
     }
 
+    @Test func zoneAbbreviationsLikeDate() {
+        #expect(ClockText.abbreviation(TimeZone(identifier: "America/New_York")!, at: now) == "EST")
+        #expect(ClockText.abbreviation(TimeZone(identifier: "UTC")!, at: now) == "UTC")
+    }
+
     @Test func dayOffset() {
         #expect(ClockText.dayOffset(now, WorldClock(zone: "America/New_York"), local: addis) == -1)
         #expect(ClockText.dayOffset(now, WorldClock(zone: "Europe/Moscow"), local: addis) == 0)

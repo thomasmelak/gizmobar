@@ -90,8 +90,19 @@ public enum ClockText {
     /// `16:11 EST`, or `16:11 NYC` with a label.
     public static func inline(_ now: Date, _ w: WorldClock, locale: Locale = .current) -> String {
         guard let tz = w.timeZone else { return "?? \(w.zone)" }
-        let name = w.label ?? tz.abbreviation(for: now) ?? w.zone
+        let name = w.label ?? abbreviation(tz, at: now)
         return "\(format(now, w.format, zone: tz, locale: locale)) \(name)"
+    }
+
+    /// Short zone name like `date +%Z` prints (EST/EDT, CET, JST). Uses the
+    /// en_US names on purpose: other locales (and POSIX) give "GMT-5".
+    public static func abbreviation(_ zone: TimeZone, at date: Date) -> String {
+        if zone.identifier == "UTC" || zone.identifier == "GMT" { return zone.identifier }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US")
+        f.timeZone = zone
+        f.dateFormat = "zzz"
+        return f.string(from: date)
     }
 
     /// Whole-day difference from local time: -1, 0 or +1 (for "Yesterday"/"Tomorrow").
