@@ -272,3 +272,63 @@ import Testing
         #expect(!m.allows("exec"))
     }
 }
+
+@Suite struct MetricsTests {
+    @Test func speedLabelsMatchNetworkSh() {
+        #expect(Units.speed(512) == "512 B/s")
+        #expect(Units.speed(8_000) == "8.0 KB/s")
+        #expect(Units.speed(1_234_567) == "1.2 MB/s")
+        #expect(Units.speed(-5) == "0 B/s")
+    }
+
+    @Test func sizes() {
+        #expect(Units.size(512 * 1_048_576) == "512 MB")
+        #expect(Units.size(1536 * 1_048_576) == "1.5 GB")
+        #expect(Units.usedOfTotal(12 * 1_073_741_824, 16 * 1_073_741_824) == "12.0 / 16 GB")
+        #expect(Units.percent(0.256) == "26%")
+    }
+
+    @Test func historyFillsThenPushesOnlyChanges() {
+        var h = History(capacity: 4)
+        h.push(0.5)
+        #expect(h.values == [0.5, 0.5, 0.5, 0.5])
+        h.push(0.5)
+        #expect(h.values == [0.5, 0.5, 0.5, 0.5])
+        h.push(0.7)
+        h.push(0.9)
+        #expect(h.values == [0.5, 0.5, 0.7, 0.9])
+    }
+
+    @Test func signalQualityAndConnectionLabel() {
+        var c = Connectivity(kind: .wifi, wifiPower: true, rssi: -60, channel: 36, band: "5 GHz")
+        #expect(c.signal == .good)
+        #expect(c.connectionLabel == "5 GHz · channel 36")
+        c.rssi = -80
+        #expect(c.signal == .weak)
+        c.wifiPower = false
+        #expect(c.signal == nil)
+        #expect(c.connectionLabel == "Off")
+        #expect(Connectivity(kind: .ethernet).connectionLabel == "Ethernet")
+        #expect(Connectivity(wifiPower: true).connectionLabel == "Not connected")
+    }
+
+    @Test func bluetoothKinds() {
+        #expect(BluetoothDevice.kind(minorType: "Headphones") == .headphones)
+        #expect(BluetoothDevice.kind(minorType: "Mouse") == .mouse)
+        #expect(BluetoothDevice.kind(minorType: nil) == .other)
+    }
+
+    @Test func snapshotKeepsChartHistory() {
+        var s = BarSnapshot()
+        let stats = SystemStats(cpu: 0.25, gpu: 0.1, temperature: 50, ramUsed: 8, ramTotal: 16, swapUsed: 0, swapTotal: 0)
+        s.apply(BarEvent(topic: Topic.systemStats, payload: JSONValue(encoding: stats)))
+        #expect(s.system == stats)
+        #expect(s.cpuHistory.values.count == 56)
+        #expect(s.temperatureHistory.values.last == 0.5)
+        #expect(s.system?.ramFraction == 0.5)
+        #expect(s.system?.swapInUse == false)
+
+        s.apply(BarEvent(topic: Topic.networkSpeed, payload: JSONValue(encoding: NetworkSpeed(download: 100, upload: 5, interface: "en0"))))
+        #expect(s.network.interface == "en0")
+    }
+}

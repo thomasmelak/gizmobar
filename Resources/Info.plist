@@ -13,6 +13,7 @@
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
+    <key>NSBluetoothAlwaysUsageDescription</key><string>Gizmobar shows your connected Bluetooth devices and lets you turn Bluetooth on or off from the bar.</string>
     <key>NSAudioCaptureUsageDescription</key><string>Gizmobar draws a live spectrum of the music that's playing.</string>
 </dict>
 </plist>

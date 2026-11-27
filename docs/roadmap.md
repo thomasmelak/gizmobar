@@ -20,6 +20,13 @@ reaches parity.
 
 ## Phase 2: providers and widgets at parity
 
+- [x] Popovers as anchored glass child panels, closed by clicking outside
+- [x] System: CPU, GPU, temperature, RAM, swap, disk, lid angle (in-process), Performance popover
+- [x] Network: speeds from 64-bit counters, Connectivity popover with Wi-Fi/Bluetooth switches
+- [ ] Battery, volume and output devices, displays (DDC) and Night Shift
+- [ ] Theme picker, Tefer Line icons, right-click icon menu
+
+
 CPU/GPU, memory, disk, network, power, audio, sensors; display control for
 built-in (DisplayServices) and external monitors (DDC/CI, software dimming
 fallback); popovers as child panels; first Tefer Line icons; right-click

@@ -13,6 +13,12 @@ public final class BarStore {
     public var theme: Theme
     public var icons: IconResolver
 
+    /// Set by the app: handles requests from widgets (refresh a provider,
+    /// toggle Wi-Fi...). See `BarRequest`.
+    @ObservationIgnored public var onRequest: (@MainActor (String) -> Void)?
+
+    public func request(_ name: String) { onRequest?(name) }
+
     /// Set by the app: runs when a workspace pill is clicked.
     @ObservationIgnored public var onFocusWorkspace: (@MainActor (String) -> Void)?
 
@@ -42,4 +48,11 @@ public final class BarStore {
             }
         }
     }
+}
+
+/// Requests widgets send to the app (and, later, plugins via ctx.emit).
+public enum BarRequest {
+    public static let refreshConnectivity = "network.connectivity.refresh"
+    public static let toggleWiFi = "network.wifi.toggle"
+    public static let toggleBluetooth = "network.bluetooth.toggle"
 }

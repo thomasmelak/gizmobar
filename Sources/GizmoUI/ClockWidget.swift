@@ -19,9 +19,7 @@ struct ClockWidget: View {
                 .fixedSize()
         }
         .barAction(onHover: { hovering = $0 }) { showing.toggle() }
-        .popover(isPresented: $showing, arrowEdge: store.config.bar.position == .bottom ? .top : .bottom) {
-            ClockPopover().environment(store)
-        }
+        .barPopover(id: "clock", isPresented: $showing) { ClockPopover() }
     }
 }
 
@@ -45,11 +43,7 @@ struct ClockPopover: View {
                 }
             }
         }
-        .padding(14)
         .frame(minWidth: 240)
-        .font(.custom(t.font, size: t.fontSize))
-        .foregroundStyle(Color(hex: t.label))
-        .background(Color(hex: t.popupBackground))
     }
 }
 

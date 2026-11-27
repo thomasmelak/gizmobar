@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panels: PanelManager!
     private var server: IPCServer?
     private var aerospace: AeroSpaceProvider!
+    private var network: NetworkProvider!
     private var providers: [any Provider] = []
     private var watcher: ConfigWatcher?
 
@@ -22,7 +23,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.attach(to: bus)
 
         aerospace = AeroSpaceProvider(settings: config.aerospace)
-        providers = [ClockProvider(), AppsProvider(), aerospace]
+        network = NetworkProvider()
+        providers = [ClockProvider(), AppsProvider(), aerospace, SystemProvider(), network]
+        store.onRequest = { [network] name in
+            guard let network else { return }
+            switch name {
+            case BarRequest.refreshConnectivity: Task { await network.refreshConnectivity() }
+            case BarRequest.toggleWiFi: Task { await network.toggleWiFi() }
+            case BarRequest.toggleBluetooth: Task { await network.toggleBluetooth() }
+            default: NSLog("gizmobar: unknown request \(name)")
+            }
+        }
         store.onFocusWorkspace = { [aerospace] ws in
             Task { await aerospace?.focus(workspace: ws) }
         }
