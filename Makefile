@@ -10,7 +10,7 @@ TEST_FLAGS := -Xswiftc -F -Xswiftc $(CLT_FW) -Xlinker -F -Xlinker $(CLT_FW) \
 	-Xlinker -rpath -Xlinker $(CLT_FW) -Xlinker -rpath -Xlinker $(DEV_DIR)/Library/Developer/usr/lib
 endif
 
-.PHONY: build test app run install uninstall config clean
+.PHONY: build test app dmg run install uninstall config clean
 
 build:
 	swift build
@@ -20,6 +20,9 @@ test:
 
 app:
 	./scripts/bundle.sh
+
+dmg: app
+	./scripts/build-dmg.sh
 
 run: app
 	-pkill -x Gizmobar
@@ -33,8 +36,7 @@ install: app
 	@echo "installed; gizmo linked into $(PREFIX)/bin"
 
 uninstall:
-	-pkill -x Gizmobar
-	rm -rf /Applications/Gizmobar.app $(PREFIX)/bin/gizmo
+	./uninstall.sh
 
 # Copies the example config into ~/.config/gizmobar without overwriting.
 config:

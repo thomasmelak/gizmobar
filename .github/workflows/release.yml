@@ -1,43 +1,41 @@
 name: Release
 
+# Publishes Gizmobar.zip (used by Homebrew and install.sh) and Gizmobar.dmg (drag to install)
+# to a GitHub release. Trigger it by pushing a tag like v0.1.0, or run it by hand from the
+# Actions tab with a tag name.
+#
+# Signing happens here, once, never on users' Macs. Optional repository secrets:
+#   SIGNING_CERT_P12, SIGNING_CERT_PASSWORD   base64 .p12 of a Developer ID Application (or
+#                                            self-signed) certificate; without them the app
+#                                            is ad-hoc signed
+#   NOTARY_APPLE_ID, NOTARY_TEAM_ID, NOTARY_PASSWORD   notarize and staple (Developer ID only)
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing tag to (re)build, e.g. v0.1.0"
+        description: "Release tag to create, for example v0.1.0"
         required: true
 
 permissions:
   contents: write
 
-concurrency:
-  group: release-${{ github.event.inputs.tag || github.ref_name }}
-
 jobs:
   release:
+    # The macOS 26 SDK is needed for Liquid Glass (NSGlassEffectView).
     runs-on: macos-26
     env:
       TAG: ${{ github.event.inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ env.TAG }}
-
-      - name: Toolchain
-        run: |
-          xcodebuild -version
-          swift --version
-
       - name: Test
         run: swift test
-
       - name: Import signing certificate
         id: sign
         env:
-          CERT_P12: ${{ secrets.DEVELOPER_ID_CERT_P12 }}
-          CERT_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+          CERT_P12: ${{ secrets.SIGNING_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
         if: env.CERT_P12 != ''
         run: |
           KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
@@ -47,79 +45,35 @@ jobs:
           security set-keychain-settings -lut 21600 "$KEYCHAIN"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
           security import "$RUNNER_TEMP/cert.p12" -P "$CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
-          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
           security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
-          IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN" | grep 'Developer ID Application' | head -1 | sed -E 's/.*"(.*)"/\1/')"
+          IDENTITY="$(security find-identity -p codesigning "$KEYCHAIN" | awk -F'"' '/\)/ {print $2; exit}')"
+          echo "Signing as: $IDENTITY"
           echo "identity=$IDENTITY" >> "$GITHUB_OUTPUT"
-
-      - name: Build app
+      - name: Build app (universal)
         env:
           SIGN_IDENTITY: ${{ steps.sign.outputs.identity }}
-        run: |
-          VERSION="${TAG#v}" BUILD_NUMBER="$GITHUB_RUN_NUMBER" UNIVERSAL=1 ./scripts/bundle.sh
-          lipo -info build/Gizmobar.app/Contents/MacOS/Gizmobar
-          codesign --verify --strict --verbose=2 build/Gizmobar.app
-
+        run: UNIVERSAL=1 VERSION="$TAG" BUILD_NUMBER="$GITHUB_RUN_NUMBER" scripts/bundle.sh
       - name: Notarize
-        if: steps.sign.outputs.identity != ''
         env:
           APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
-          APPLE_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
-          APPLE_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+          TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
+          APP_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+        if: steps.sign.outputs.identity != '' && env.APPLE_ID != ''
         run: |
           ditto -c -k --keepParent build/Gizmobar.app "$RUNNER_TEMP/notarize.zip"
           xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" --wait \
-            --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_PASSWORD"
+            --apple-id "$APPLE_ID" --team-id "$TEAM_ID" --password "$APP_PASSWORD"
           xcrun stapler staple build/Gizmobar.app
-
-      - name: Package
-        id: package
+      - name: Build zip and DMG
         run: |
-          VERSION="${TAG#v}"
-          ZIP="Gizmobar-$VERSION.zip"
-          mkdir -p dist
-          ditto -c -k --sequesterRsrc --keepParent build/Gizmobar.app "dist/$ZIP"
-          SHA="$(shasum -a 256 "dist/$ZIP" | cut -d' ' -f1)"
-          sed -e "s/@VERSION@/$VERSION/" -e "s/@SHA256@/$SHA/" packaging/homebrew/gizmobar.rb > dist/gizmobar.rb
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
-          {
-            echo "### Gizmobar $VERSION"
-            echo "\`$ZIP\` sha256 \`$SHA\`"
-            echo '```ruby'
-            cat dist/gizmobar.rb
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-
+          ditto -c -k --sequesterRsrc --keepParent build/Gizmobar.app build/Gizmobar.zip
+          scripts/build-dmg.sh
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.package.outputs.version }}
         run: |
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "dist/Gizmobar-$VERSION.zip" --clobber
-          else
-            gh release create "$TAG" "dist/Gizmobar-$VERSION.zip" --title "Gizmobar $VERSION" --generate-notes --verify-tag
-          fi
-
-      - name: Update Homebrew tap
-        env:
-          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          VERSION: ${{ steps.package.outputs.version }}
-          OWNER: ${{ github.repository_owner }}
-          OWNER_ID: ${{ github.repository_owner_id }}
-        if: env.TAP_TOKEN != ''
-        run: |
-          git clone "https://x-access-token:${TAP_TOKEN}@github.com/${OWNER}/homebrew-tap.git" "$RUNNER_TEMP/tap"
-          cd "$RUNNER_TEMP/tap"
-          mkdir -p Casks
-          cp "$GITHUB_WORKSPACE/dist/gizmobar.rb" Casks/gizmobar.rb
-          if git diff --quiet --exit-code -- Casks && git ls-files --error-unmatch Casks/gizmobar.rb >/dev/null 2>&1; then
-            echo "cask already up to date"
-            exit 0
-          fi
-          git config user.name "$OWNER"
-          git config user.email "${OWNER_ID}+${OWNER}@users.noreply.github.com"
-          git add Casks/gizmobar.rb
-          git commit -m "gizmobar $VERSION"
-          git push origin HEAD
+          gh release create "$TAG" build/Gizmobar.zip build/Gizmobar.dmg \
+            --target "$GITHUB_SHA" \
+            --title "Gizmobar $TAG" \
+            --generate-notes

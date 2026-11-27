@@ -8,7 +8,7 @@
 #
 # Release builds (see .github/workflows/release.yml):
 #   UNIVERSAL=1   build for arm64 and x86_64
-#   VERSION=1.2.3 BUILD_NUMBER=42   stamp the bundle version
+#   VERSION=1.2.3 (or v1.2.3) BUILD_NUMBER=42   stamp the bundle version
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -38,7 +38,7 @@ cp -R examples/gizmobar "$OUT/Contents/Resources/examples/gizmobar"
 
 PLIST="$OUT/Contents/Info.plist"
 if [[ -n "${VERSION:-}" ]]; then
-  /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$PLIST"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION#v}" "$PLIST"
 fi
 if [[ -n "${BUILD_NUMBER:-}" ]]; then
   /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$PLIST"

@@ -27,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var pluginLog: [String] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        CLILink.ensure()
         BackgroundCursor.enable()
         let config = loadConfig()
         store = BarStore(config: config, theme: Theme.load(named: config.theme), icons: makeResolver(config))

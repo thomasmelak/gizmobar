@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    # The macOS 26 SDK is needed for Liquid Glass (NSGlassEffectView).
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: swift --version
+      - name: Test
+        run: swift test
+      - name: Build app (universal)
+        run: UNIVERSAL=1 scripts/bundle.sh
+      - name: Build zip and DMG
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent build/Gizmobar.app build/Gizmobar.zip
+          scripts/build-dmg.sh
+      - name: Check bundle
+        run: |
+          lipo -info build/Gizmobar.app/Contents/MacOS/Gizmobar
+          lipo -info build/Gizmobar.app/Contents/MacOS/gizmo
+          plutil -lint build/Gizmobar.app/Contents/Info.plist
+          codesign --verify --strict --verbose build/Gizmobar.app
+          hdiutil verify build/Gizmobar.dmg
+          test -s build/Gizmobar.app/Contents/Resources/AppIcon.icns
+          test -s build/Gizmobar.app/Contents/Resources/examples/gizmobar/config.toml
+          build/Gizmobar.app/Contents/MacOS/gizmo version
+          CFG="$(mktemp -d)/cfg"
+          GIZMOBAR_CONFIG_DIR="$CFG" build/Gizmobar.app/Contents/MacOS/gizmo config init
+          test -s "$CFG/config.toml"
+          GIZMOBAR_CONFIG_DIR="$CFG" build/Gizmobar.app/Contents/MacOS/gizmo config init | grep -q "copied 0 files"
+      - name: Check scripts
+        run: |
+          for f in install.sh uninstall.sh scripts/*.sh; do bash -n "$f"; done
+          ruby -c Casks/gizmobar.rb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Gizmobar
+          path: |
+            build/Gizmobar.zip
+            build/Gizmobar.dmg

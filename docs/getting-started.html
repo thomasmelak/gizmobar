@@ -26,6 +26,7 @@
 <div class="wrap doc">
   <aside>
     <a href="#install">Install</a>
+    <a href="#uninstall">Uninstall</a>
     <a href="#config">Configure</a>
     <a href="#aerospace">AeroSpace</a>
     <a href="#media">Now playing</a>
@@ -38,39 +39,82 @@
 
   <article>
     <h1>Getting started</h1>
-    <p>This takes about five minutes with Homebrew.</p>
+    <p>This takes about five minutes.</p>
 
     <h2 id="install">Install</h2>
-    <p>You need <strong>macOS 14 or newer</strong>. Homebrew is the quickest way in; building from source is below.</p>
-    <ol class="steps">
-      <li>
-        <h3>Install with Homebrew</h3>
-<pre>brew install --cask thomasmelak/tap/gizmobar</pre>
-        <p>This puts Gizmobar.app in <code>/Applications</code> and <code>gizmo</code> on your <code>PATH</code>. Update with <code>brew upgrade --cask gizmobar</code>.</p>
-      </li>
-      <li>
-        <h3>Copy the example config and start</h3>
-<pre>gizmo config init    <span class="c"># copies the example config into ~/.config/gizmobar (never overwrites)</span>
-open -a Gizmobar
-gizmo ping           <span class="c"># → pong</span></pre>
-      </li>
-      <li>
-        <h3>Start at login</h3>
-        <p>Set <code>launch_at_login = true</code> in config.toml, or start it from AeroSpace (see below).</p>
-      </li>
-    </ol>
-    <p class="note">Release builds are not notarized yet. The cask clears the download quarantine so macOS opens the app; if you downloaded the zip from GitHub yourself, run <code>xattr -dr com.apple.quarantine /Applications/Gizmobar.app</code> once.</p>
+    <p>You need <strong>macOS 14 or newer</strong>. Pick whichever way you like; every option installs the same app.</p>
+    <div class="tabs" role="tablist" aria-label="Install method">
+      <button class="tab" role="tab" aria-selected="true" aria-controls="p-dmg" id="t-dmg">Download (DMG)</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="p-brew" id="t-brew" tabindex="-1">Homebrew</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="p-curl" id="t-curl" tabindex="-1">One-line installer</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="p-src" id="t-src" tabindex="-1">From source (developers)</button>
+    </div>
 
-    <h3 id="from-source">Build from source</h3>
-    <p>You need <strong>Swift 6</strong>. The Xcode Command Line Tools are enough (<code>xcode-select --install</code>); full Xcode works too.</p>
-<pre>git clone https://github.com/thomasmelak/gizmobar
-<span class="f">cd</span> gizmobar
-make test      <span class="c"># optional: run the unit tests</span>
-make install   <span class="c"># Gizmobar.app into /Applications, `gizmo` into ~/.local/bin</span>
-make config    <span class="c"># same as `gizmo config init`</span></pre>
-    <p>Make sure <code>~/.local/bin</code> is on your <code>PATH</code>. macOS ties privacy grants (automation, audio capture) to the app's signature, so sign with a stable identity to keep them across rebuilds:</p>
-<pre>SIGN_IDENTITY=<span class="s">"Apple Development: Your Name (TEAMID)"</span> make install</pre>
-    <p>List your identities with <code>security find-identity -v -p codesigning</code>.</p>
+    <div class="panel active" role="tabpanel" id="p-dmg" aria-labelledby="t-dmg">
+      <ol class="steps">
+        <li><p>Download <a href="https://github.com/thomasmelak/gizmobar/releases/latest/download/Gizmobar.dmg"><strong>Gizmobar.dmg</strong></a> from the latest release.</p></li>
+        <li><p>Open the DMG and drag <strong>Gizmobar</strong> onto the <strong>Applications</strong> folder.</p></li>
+        <li><p>Open Gizmobar from Applications. The first time, macOS will block it because the app isn't notarized; see <a href="#first-open">Opening it the first time</a> below.</p></li>
+        <li>
+          <p>The first launch links <code>gizmo</code> into <code>~/.local/bin</code>. Copy the example config into <code>~/.config/gizmobar</code> (it never overwrites):</p>
+          <div class="code"><pre><span class="p">$ </span>~/.local/bin/gizmo config init</pre><button class="copy">Copy</button></div>
+        </li>
+      </ol>
+    </div>
+
+    <div class="panel" role="tabpanel" id="p-brew" aria-labelledby="t-brew">
+      <ol class="steps">
+        <li>
+          <p>Add the tap and install the cask:</p>
+          <div class="code"><pre><span class="p">$ </span>brew tap thomasmelak/gizmobar https://github.com/thomasmelak/gizmobar
+<span class="p">$ </span>brew install --cask gizmobar</pre><button class="copy">Copy</button></div>
+        </li>
+        <li><p>Homebrew clears the quarantine flag, puts <code>gizmo</code> on your <code>PATH</code> and starts the bar, so there's no security prompt.</p></li>
+        <li>
+          <p>Copy the example config, and update later with <code>brew upgrade</code>:</p>
+          <div class="code"><pre><span class="p">$ </span>gizmo config init
+<span class="p">$ </span>brew upgrade --cask --greedy gizmobar</pre><button class="copy">Copy</button></div>
+        </li>
+      </ol>
+    </div>
+
+    <div class="panel" role="tabpanel" id="p-curl" aria-labelledby="t-curl">
+      <ol class="steps">
+        <li>
+          <p>Paste this into Terminal:</p>
+          <div class="code"><pre><span class="p">$ </span>curl -fsSL https://raw.githubusercontent.com/thomasmelak/gizmobar/main/install.sh | bash</pre><button class="copy">Copy</button></div>
+        </li>
+        <li><p>The script downloads the latest release into <code>/Applications</code>, clears the quarantine flag, links <code>gizmo</code> into <code>~/.local/bin</code>, copies the example config and starts the bar. Nothing is built on your Mac and you don't need Xcode.</p></li>
+      </ol>
+    </div>
+
+    <div class="panel" role="tabpanel" id="p-src" aria-labelledby="t-src">
+      <ol class="steps">
+        <li><p>Only needed if you want to work on Gizmobar itself. You need the Xcode Command Line Tools with Swift 6 (<code>xcode-select --install</code>).</p></li>
+        <li>
+          <p>Clone, build and install:</p>
+          <div class="code"><pre><span class="p">$ </span>git clone https://github.com/thomasmelak/gizmobar.git
+<span class="p">$ </span>cd gizmobar
+<span class="p">$ </span>make install   <span class="c"># Gizmobar.app into /Applications, gizmo into ~/.local/bin</span>
+<span class="p">$ </span>make config    <span class="c"># copy the example config</span>
+<span class="p">$ </span>open -a Gizmobar</pre><button class="copy">Copy</button></div>
+        </li>
+      </ol>
+    </div>
+    <div class="note" id="first-open">
+      <p><strong>Opening it the first time.</strong> Release builds are signed in CI but not notarized by Apple, so the first launch of a downloaded copy shows a "cannot be opened" or "Apple could not verify" message. Open <strong>System Settings › Privacy &amp; Security</strong>, scroll to the message about Gizmobar and click <strong>Open Anyway</strong>, or remove the quarantine flag in Terminal:</p>
+      <div class="code"><pre><span class="p">$ </span>xattr -dr com.apple.quarantine /Applications/Gizmobar.app</pre><button class="copy">Copy</button></div>
+      <p>Homebrew and the one-line installer do this for you.</p>
+    </div>
+
+    <p>Check that it's running with <code>gizmo ping</code> (→ pong). To start at login, set <code>launch_at_login = true</code> in config.toml, or start it from AeroSpace (see below).</p>
+
+    <h3 id="uninstall">Uninstall</h3>
+    <p>Either of these removes the app, the <code>gizmo</code> command and the bar's state. Your config in <code>~/.config/gizmobar</code> is kept.</p>
+    <div class="code"><pre><span class="p">$ </span>brew uninstall --cask --zap gizmobar</pre><button class="copy">Copy</button></div>
+    <div class="code"><pre><span class="p">$ </span>curl -fsSL https://raw.githubusercontent.com/thomasmelak/gizmobar/main/uninstall.sh | bash</pre><button class="copy">Copy</button></div>
+    <p>Or run <code>make uninstall</code> in a clone of the repository.</p>
+
     <p class="note">Coming from SketchyBar? Stop it first so the two bars don't overlap: <code>brew services stop sketchybar</code>, and remove its lines from <code>aerospace.toml</code>.</p>
 
     <h2 id="config">Configure</h2>
@@ -185,5 +229,6 @@ gizmo new my-plugin            <span class="c"># ~/.config/gizmobar/plugins/my-p
     </div>
   </div>
 </footer>
+<script src="assets/install.js"></script>
 </body>
 </html>
