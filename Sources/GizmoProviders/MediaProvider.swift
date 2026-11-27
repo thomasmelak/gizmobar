@@ -320,7 +320,9 @@ public actor MediaProvider: Provider {
             try? data.write(to: file, options: .atomic)
         }
         color = Self.color(of: file)
-        guard var s = sources[id], s.track?.key == key else { return }
+        // The track may already be history (skipped before its art came).
+        history[id]?.setArt(key: key, path: file.path, color: color)
+        guard var s = sources[id], s.track?.key == key else { return await publish() }
         s.track?.artworkPath = file.path
         s.track?.artColor = color
         sources[id] = s
