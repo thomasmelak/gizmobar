@@ -24,7 +24,9 @@ def add(data, fmt, count, type_, ctype, minmax=None, target=None):
     return len(accessors) - 1
 
 
-def box(sx, sy, sz):
+def box(sx, sy, sz, dy=0.0):
+    """A box centred on the origin, moved down by -dy (so a limb can hang
+    from its joint at the origin)."""
     hx, hy, hz = sx / 2, sy / 2, sz / 2
     faces = [((1, 0, 0), [(hx, -hy, -hz), (hx, hy, -hz), (hx, hy, hz), (hx, -hy, hz)]),
              ((-1, 0, 0), [(-hx, -hy, hz), (-hx, hy, hz), (-hx, hy, -hz), (-hx, -hy, -hz)]),
@@ -36,10 +38,10 @@ def box(sx, sy, sz):
     for n, quad in faces:
         b = len(pos) // 3
         for p in quad:
-            pos += p
+            pos += (p[0], p[1] + dy, p[2])
             nor += n
         idx += [b, b + 1, b + 2, b, b + 2, b + 3]
-    p = add(pos, "f", 24, "VEC3", 5126, ([-hx, -hy, -hz], [hx, hy, hz]), 34962)
+    p = add(pos, "f", 24, "VEC3", 5126, ([-hx, -hy + dy, -hz], [hx, hy + dy, hz]), 34962)
     n = add(nor, "f", 24, "VEC3", 5126, target=34962)
     i = add(idx, "H", 36, "SCALAR", 5123, target=34963)
     return p, n, i
@@ -56,8 +58,8 @@ materials = [
 meshes = []
 
 
-def mesh(name, size, mat):
-    p, n, i = box(*size)
+def mesh(name, size, mat, dy=0.0):
+    p, n, i = box(*size, dy)
     meshes.append({"name": name, "primitives": [{"attributes": {"POSITION": p, "NORMAL": n}, "indices": i, "material": mat}]})
     return len(meshes) - 1
 
@@ -69,10 +71,10 @@ nodes = [
     {"name": "EyeL", "mesh": mesh("Eye", (0.07, 0.09, 0.02), 2), "translation": [-0.09, 0.02, 0.165]},
     {"name": "EyeR", "mesh": mesh("Eye", (0.07, 0.09, 0.02), 2), "translation": [0.09, 0.02, 0.165]},
     {"name": "Antenna", "mesh": mesh("Antenna", (0.06, 0.06, 0.06), 3), "translation": [0, 0.24, 0]},
-    {"name": "ArmL", "mesh": mesh("Arm", (0.1, 0.32, 0.1), 0), "translation": [-0.32, -0.02, 0]},
-    {"name": "ArmR", "mesh": mesh("Arm", (0.1, 0.32, 0.1), 0), "translation": [0.32, -0.02, 0]},
-    {"name": "LegL", "mesh": mesh("Leg", (0.12, 0.18, 0.12), 2), "translation": [-0.12, -0.3, 0]},
-    {"name": "LegR", "mesh": mesh("Leg", (0.12, 0.18, 0.12), 2), "translation": [0.12, -0.3, 0]},
+    {"name": "ArmL", "mesh": mesh("Arm", (0.1, 0.32, 0.1), 0, -0.14), "translation": [-0.32, 0.12, 0]},
+    {"name": "ArmR", "mesh": mesh("Arm", (0.1, 0.32, 0.1), 0, -0.14), "translation": [0.32, 0.12, 0]},
+    {"name": "LegL", "mesh": mesh("Leg", (0.12, 0.18, 0.12), 2, -0.09), "translation": [-0.12, -0.21, 0]},
+    {"name": "LegR", "mesh": mesh("Leg", (0.12, 0.18, 0.12), 2, -0.09), "translation": [0.12, -0.21, 0]},
     {"name": "ChestLight", "mesh": mesh("ChestLight", (0.12, 0.12, 0.02), 4), "translation": [0, 0.02, 0.18], "scale": [0, 0, 0]},
     {"name": "Plug", "mesh": mesh("Plug", (0.1, 0.1, 0.1), 5), "translation": [0, -0.05, -0.22], "scale": [0, 0, 0]},
     {"name": "Cable", "mesh": mesh("Cable", (0.5, 0.035, 0.035), 5), "translation": [0.26, -0.15, -0.22], "rotation": [0, 0, -0.2588, 0.9659], "scale": [0, 0, 0]},
@@ -113,11 +115,27 @@ clip("idle", [
     ("Body", "translation", *wave(T(2, 8), lambda t: [0, 0.25 + 0.02 * S(t * P), 0])),
     ("Head", "rotation", *wave(T(2, 8), lambda t: q((0, 1, 0), 8 * S(t * P)))),
 ])
+# Two beats a second: both feet hop, the arms pump overhead in turn
+# (left on one beat, right on the next), the head bobs and the body twists.
+B = 0.9  # seconds for a left-right pair of beats
+
+
+def beat(t):
+    return S(t / B * 2 * P)
+
+
+def pump(x):
+    return 25 + 135 * max(0.0, x)
+
+
 dance = [
-    ("Body", "rotation", *wave(T(1, 8), lambda t: q((0, 0, 1), 10 * S(t * 2 * P)))),
-    ("Body", "translation", *wave(T(1, 8), lambda t: [0, 0.25 + 0.04 * abs(S(t * 2 * P)), 0])),
-    ("ArmL", "rotation", *wave(T(1, 8), lambda t: q((0, 0, 1), -60 - 50 * S(t * 2 * P)))),
-    ("ArmR", "rotation", *wave(T(1, 8), lambda t: q((0, 0, 1), 60 + 50 * S(t * 2 * P)))),
+    ("Body", "translation", *wave(T(B, 16), lambda t: [0, 0.25 + 0.06 * abs(beat(t)), 0])),
+    ("Body", "rotation", *wave(T(B, 16), lambda t: q((0, 1, 0), 14 * beat(t)))),
+    ("Head", "rotation", *wave(T(B, 16), lambda t: q((1, 0, 0), 12 * abs(beat(t)) - 4))),
+    ("ArmL", "rotation", *wave(T(B, 16), lambda t: q((0, 0, 1), -pump(beat(t))))),
+    ("ArmR", "rotation", *wave(T(B, 16), lambda t: q((0, 0, 1), pump(-beat(t))))),
+    ("LegL", "rotation", *wave(T(B, 16), lambda t: q((1, 0, 0), -25 * max(0.0, beat(t))))),
+    ("LegR", "rotation", *wave(T(B, 16), lambda t: q((1, 0, 0), -25 * max(0.0, -beat(t))))),
 ]
 clip("dance", dance)
 clip("run", [
@@ -154,9 +172,9 @@ clip("charge", [
 ])
 # Dancing while plugged in: same moves, cable and chest light still on.
 clip("dance-charging", dance + [
-    ("ChestLight", "scale", *wave(T(1, 8), lambda t: [0.9 + 0.2 * abs(S(t * 2 * P))] * 3)),
-    ("Plug", "scale", *wave(T(1, 2), lambda t: [1, 1, 1])),
-    ("Cable", "scale", *wave(T(1, 2), lambda t: [1, 1, 1])),
+    ("ChestLight", "scale", *wave(T(B, 16), lambda t: [0.9 + 0.2 * abs(beat(t))] * 3)),
+    ("Plug", "scale", *wave(T(B, 2), lambda t: [1, 1, 1])),
+    ("Cable", "scale", *wave(T(B, 2), lambda t: [1, 1, 1])),
 ])
 clip("happy", [
     # Full and still plugged in: small hops with the arms up.
