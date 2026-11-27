@@ -69,9 +69,10 @@ struct GLTFTests {
         let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .deletingLastPathComponent().appendingPathComponent("examples/gizmobar/plugins/status-pet/models/gizmo-bot.glb")
         let doc = try GLTFDocument.load(url)
-        #expect(Set(doc.animations.map(\.name)) == ["idle", "dance", "run", "sleep", "wave"])
+        #expect(Set(doc.animations.map(\.name)) == ["idle", "dance", "run", "sleep", "wave", "charge", "dance-charging", "happy"])
         #expect(doc.nodes.compactMap(\.name).contains("Antenna"))
-        #expect(doc.triangleCount == 9 * 12)
+        #expect(doc.nodes.compactMap(\.name).contains("Cable"))
+        #expect(doc.triangleCount == 12 * 12)
     }
 
     @Test func rejectsGarbage() {

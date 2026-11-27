@@ -33,7 +33,7 @@ var __plugin = (() => {
     id: "status-pet",
     setup(ctx) {
       const cpu = ctx.use("cpu", { every: "2s" });
-      const power = ctx.use("power", { every: "10s" });
+      const power = ctx.use("power");
       const media = ctx.use("media");
       const chargeLooks = ctx.config.charging !== false;
       const mood = () => {

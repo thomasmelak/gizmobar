@@ -42,6 +42,9 @@ public final class PluginManager {
         var error: String?
         var uses: [String: Double] = [:]
         var lastFed: [String: Date] = [:]
+        /// Providers that changed inside their `every` window and still
+        /// owe the plugin their latest value once the window ends.
+        var pendingFeed = Set<String>()
         var topics = Set<String>()
         var renderQueued = false
         init(runtime: PluginRuntime) { self.runtime = runtime }
@@ -160,12 +163,34 @@ public final class PluginManager {
             }
             for name in names {
                 guard let every = p.uses[name] else { continue }
-                if every > 0, let last = p.lastFed[name], now.timeIntervalSince(last) < every { continue }
-                p.lastFed[name] = now
-                guard let v = PluginProviders.value(name, from: snapshot) else { continue }
-                let r = p.runtime
-                Task { await r.setProvider(name, v); markDirty(id) }
+                if every > 0, let last = p.lastFed[name], now.timeIntervalSince(last) < every {
+                    // Throttled, not dropped: deliver the newest value when
+                    // the window ends, so a change (plugging in) that lands
+                    // right after a feed still reaches the plugin.
+                    deferFeed(id, name, after: every - now.timeIntervalSince(last))
+                    continue
+                }
+                feed(id, name, at: now)
             }
+        }
+    }
+
+    private func feed(_ id: String, _ name: String, at now: Date) {
+        guard let p = plugins[id] else { return }
+        p.lastFed[name] = now
+        guard let v = PluginProviders.value(name, from: snapshot) else { return }
+        let r = p.runtime
+        Task { await r.setProvider(name, v); markDirty(id) }
+    }
+
+    private func deferFeed(_ id: String, _ name: String, after delay: TimeInterval) {
+        guard let p = plugins[id], p.pendingFeed.insert(name).inserted else { return }
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(max(0, delay)))
+            guard let self, let p = self.plugins[id] else { return }
+            p.pendingFeed.remove(name)
+            guard p.error == nil, !p.stats.paused else { return }
+            self.feed(id, name, at: Date())
         }
     }
 
