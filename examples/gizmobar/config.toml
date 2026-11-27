@@ -65,7 +65,7 @@ system_look = "mono"                            # mono | color, for fallback ico
 debug_fallbacks = false
 
 [icons.apps]
-"com.spotify.client" = { style = "system" }
+# "com.spotify.client" = { style = "system" }   # real macOS icon for one app
 # "dev.zed.Zed" = { file = "~/icons/zed.svg" }
 # "com.tinyspeck.slackmacgap" = { glyph = "slack", color = "#e01e5a" }
 

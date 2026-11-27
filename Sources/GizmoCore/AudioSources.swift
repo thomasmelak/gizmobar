@@ -72,6 +72,13 @@ public enum ShownSource: Sendable, Equatable {
         }
     }
 
+    public var name: String {
+        switch self {
+        case .media(let m): m.name
+        case .audio(let a): a.name
+        }
+    }
+
     public var isPlaying: Bool {
         switch self {
         case .media(let m): m.isPlaying

@@ -171,7 +171,13 @@ struct NowPlayingPopover: View {
                     if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: shown.id) {
                         NSWorkspace.shared.openApplication(at: url, configuration: .init())
                     }
-                })
+                }) {
+                    // The app that's playing; click the header to open it.
+                    HStack(spacing: 6) {
+                        Text(shown.name).font(.system(size: 11)).foregroundStyle(Color(hex: t.label).opacity(0.7))
+                        AppIconView(app: AppRef(bundleID: shown.id, name: shown.name), size: 18)
+                    }
+                }
                 SourceList(shown: shown.id)
                 switch shown {
                 case .media(let source):
