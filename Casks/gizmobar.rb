@@ -1,11 +1,16 @@
 cask "gizmobar" do
-  version :latest
-  sha256 :no_check
+  version "0.1.0"
+  sha256 "ad362c5bcefb95ccf48239395ae2e93c27e0359cb09a2b937f0cbe094b279e0f"
 
-  url "https://github.com/thomasmelak/gizmobar/releases/latest/download/Gizmobar.zip"
+  url "https://github.com/thomasmelak/gizmobar/releases/download/v#{version}/Gizmobar.zip"
   name "Gizmobar"
   desc "Native status bar with AeroSpace workspaces, plugins and 3D models"
   homepage "https://thomasmelak.github.io/gizmobar/"
+
+  livecheck do
+    url :url
+    strategy :github_latest
+  end
 
   depends_on macos: :sonoma
 
