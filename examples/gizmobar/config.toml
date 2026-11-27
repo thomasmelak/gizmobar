@@ -71,8 +71,10 @@ debug_fallbacks = false
 
 [media]
 # adapter = "~/.local/share/mediaremote-adapter"   # any app's media (browsers...), see README
-spectrum = true        # live bars per app from Core Audio taps; false = animated bars
+spectrum = true        # live audio from Core Audio taps; false = animated
 bands = 24
+visualizer = "ridgeline"  # ridgeline | bars | off
+# audio_sources = ["com.example.app"]  # more sound sources besides players, calls and browsers
 width = 156
 
 [lyrics]

@@ -2,11 +2,11 @@ import AppKit
 import SwiftUI
 import GizmoCore
 
-/// Previous, play/pause and next, then the track over a dimmed spectrum, in
+/// Previous, play/pause and next, then the track over a dimmed visualizer, in
 /// one pill (hidden when nothing is loaded). Click the track for the Now
 /// Playing popover; right-click play/pause skips to the next track. Apps
 /// that make sound without being players (calls, videos, games) show their
-/// icon and name over their own spectrum, with no controls.
+/// icon and name over their own visualizer, with no controls.
 struct NowPlayingWidget: View {
     @Environment(BarStore.self) private var store
     @State private var showing = false
@@ -59,7 +59,9 @@ struct NowPlayingWidget: View {
     private func label(_ text: String, key: String, source: String, playing: Bool, tint: String) -> some View {
         let t = store.theme
         return ZStack {
-            SpectrumBars(source: source, playing: playing, color: tint, opacity: 0.32)
+            // Inset from the pill's border so the ridges never touch it.
+            AudioVisualizer(source: source, playing: playing, colors: [tint], placement: .bar, opacity: 0.6, cornerRadius: 4)
+                .padding(.vertical, 3)
             Marquee(text: text, scrolling: hovering)
                 .font(.custom(t.font, size: t.fontSize))
                 .foregroundStyle(Color(hex: t.label))
@@ -136,58 +138,6 @@ struct Marquee: View {
     }
 }
 
-/// Spectrum bars: live levels from the audio tap, or eased random levels
-/// (like visualizer.sh) when there's no tap. Draws nothing while paused.
-struct SpectrumBars: View {
-    /// The audio source (app bundle ID) whose levels to draw.
-    let source: String
-    let playing: Bool
-    let color: String
-    var opacity: Double = 1
-    @Environment(BarStore.self) private var store
-    @State private var fake: [Float] = []
-
-    var body: some View {
-        let live = store.levels(for: source).levels
-        let count = store.config.media.bands
-        Group {
-            if !playing {
-                bars(Array(repeating: 0, count: count))
-            } else if !live.isEmpty {
-                bars(live)
-            } else {
-                TimelineView(.periodic(from: .now, by: 0.12)) { tl in
-                    bars(fake).onChange(of: tl.date) { fake = Self.step(fake, count: count) }
-                }
-            }
-        }
-        .opacity(opacity)
-    }
-
-    private func bars(_ levels: [Float]) -> some View {
-        Canvas { ctx, size in
-            guard !levels.isEmpty else { return }
-            let w = size.width / CGFloat(levels.count)
-            for (i, l) in levels.enumerated() {
-                let h = max(2, size.height * CGFloat(l))
-                let r = CGRect(x: CGFloat(i) * w + w * 0.15, y: size.height - h, width: w * 0.7, height: h)
-                ctx.fill(Path(roundedRect: r, cornerRadius: min(1.5, w * 0.35)), with: .color(Color(hex: color)))
-            }
-        }
-    }
-
-    /// Eases toward random targets; middle bars reach higher.
-    static func step(_ levels: [Float], count: Int) -> [Float] {
-        let prev = levels.count == count ? levels : Array(repeating: 0, count: count)
-        let mid = Float(count) / 2
-        return prev.enumerated().map { i, p in
-            let reach = 0.45 + 0.5 * (1 - abs(Float(i) - mid) / mid)
-            let target = Float.random(in: 0...reach)
-            return (p + target * 2) / 3
-        }
-    }
-}
-
 /// Catches right clicks only; left clicks and hover pass through.
 struct RightClickArea: NSViewRepresentable {
     let action: @MainActor () -> Void
@@ -245,7 +195,8 @@ struct NowPlayingPopover: View {
                                 withAnimation(.easeInOut(duration: 0.25)) { showLyrics.toggle() }
                             }
                         }
-                        SpectrumBars(source: source.id, playing: source.isPlaying, color: tint).frame(height: 28)
+                        AudioVisualizer(source: source.id, playing: source.isPlaying, colors: track.artGradient ?? [tint], cornerRadius: 10)
+                            .frame(height: 88)
                         if source.id == "com.spotify.client", store.snapshot.spotify.configured {
                             SpotifySection(tint: tint)
                         }
@@ -259,7 +210,8 @@ struct NowPlayingPopover: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
-                    SpectrumBars(source: source.id, playing: source.isActive, color: t.accent).frame(height: 40)
+                    AudioVisualizer(source: source.id, playing: source.isActive, colors: [t.accent], cornerRadius: 10)
+                        .frame(height: 110)
                 }
             }
             .frame(width: 260)
@@ -425,7 +377,7 @@ private struct PlaylistRow: View {
 }
 
 /// Every player with a track and every app heard in the last 10 minutes,
-/// playing ones first, each with a small live spectrum. Click to show it.
+/// playing ones first, each with a small live visualizer. Click to show it.
 private struct SourceList: View {
     let shown: String
     @Environment(BarStore.self) private var store
@@ -494,7 +446,7 @@ private struct SourceRow: View {
             }
             .lineLimit(1)
             Spacer(minLength: 8)
-            SpectrumBars(source: row.id, playing: row.playing, color: selected ? t.accent : t.icon)
+            AudioVisualizer(source: row.id, playing: row.playing, colors: [selected ? t.accent : t.icon], placement: .row)
                 .frame(width: 44, height: 14)
                 .opacity(row.playing ? 1 : 0.3)
         }

@@ -566,15 +566,7 @@ struct MediaTests {
         #expect(snap.nowPlaying.current?.track?.title == "B")
         let zoom = AudioSource(id: "us.zoom.xos", name: "zoom.us", isActive: true, lastHeard: Date())
         snap.apply(BarEvent(topic: Topic.audioSources, payload: JSONValue(encoding: AudioSourcesStatus(sources: [zoom]))))
-        snap.apply(BarEvent(topic: Topic.spectrum, payload: JSONValue(encoding: SourceSpectrum(source: zoom.id, levels: [0.5, 1]))))
-        #expect(snap.spectra[zoom.id] == [0.5, 1])
-        snap.apply(BarEvent(topic: Topic.spectrum, payload: JSONValue(encoding: SourceSpectrum(source: zoom.id, levels: []))))
-        #expect(snap.spectra[zoom.id] == nil)
-        // A source that goes quiet drops its levels.
-        snap.apply(BarEvent(topic: Topic.spectrum, payload: JSONValue(encoding: SourceSpectrum(source: zoom.id, levels: [0.2]))))
-        var quiet = zoom; quiet.isActive = false
-        snap.apply(BarEvent(topic: Topic.audioSources, payload: JSONValue(encoding: AudioSourcesStatus(sources: [quiet]))))
-        #expect(snap.spectra.isEmpty && snap.audioSources == [quiet])
+        #expect(snap.audioSources == [zoom])
     }
 
     @Test func trackHistoryRecordsSkipsAndGoingBack() {
@@ -586,19 +578,6 @@ struct MediaTests {
         #expect(h.cards.map(\.title) == ["A"])
         h.setArt(key: a.key, path: "/tmp/a.jpg", color: "#ff0000")
         #expect(h.cards.first?.artworkPath == "/tmp/a.jpg")
-    }
-
-    @Test func busKeepsEachSourcesSpectrum() async {
-        let bus = EventBus(flushWindow: .seconds(60))
-        let stream = await bus.subscribe(prefixes: [Topic.spectrum])
-        for (id, l) in [("a", 0.1), ("b", 0.2), ("a", 0.3)] as [(String, Float)] {
-            await bus.publish(topic: Topic.spectrum, key: id, payload: JSONValue(encoding: SourceSpectrum(source: id, levels: [l])))
-        }
-        await bus.flush()
-        var snap = BarSnapshot()
-        var it = stream.makeAsyncIterator()
-        for _ in 0..<2 { if let e = await it.next() { snap.apply(e) } }
-        #expect(snap.spectra == ["a": [0.3], "b": [0.2]])
     }
 
     @Test func lyricsParseLRCAndFollowPosition() throws {
@@ -674,21 +653,12 @@ struct MediaTests {
         #expect(p[0].r > 0.7 && p[1].b > 0.7 && p[2].g > 0.7)
     }
 
-    @Test func spectrumBands() {
-        // A loud bin near 1 kHz at 48 kHz / 1024-point FFT (46.875 Hz bins).
-        var power = [Float](repeating: 0, count: 512)
-        power[21] = Float(512 * 512)
-        let b = Spectrum.bands(power: power, sampleRate: 48_000, count: 12)
-        #expect(b.count == 12)
-        #expect(b.max() == 1)
-        #expect(b.first == 0)
-        let s = Spectrum.smooth([0, 1], [1, 0])
-        #expect(s[0] > 0.5 && s[1] > 0.8)
-    }
-
     @Test func mediaSettings() throws {
         let c = try GizmoConfig.parse("[media]\nspectrum = false\nbands = 200")
         #expect(c.media.spectrum == false)
+        #expect(c.media.visualizer == .ridgeline)
+        #expect(try GizmoConfig.parse("[media]\nvisualizer = \"Bars\"").media.visualizer == .bars)
+        #expect(try GizmoConfig.parse("[media]\nvisualizer = \"nope\"").media.visualizer == .ridgeline)
         #expect(c.media.bands == 64)
         #expect(try GizmoConfig.parse("").layout.right.first == "now_playing")
     }

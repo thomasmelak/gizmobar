@@ -124,3 +124,109 @@ struct SceneOptionsTests {
         #expect(SceneOptions.parse(["popover": ["$fn": 3]]).popoverSize == nil)
     }
 }
+
+@Suite struct CavaTests {
+    func sine(_ hz: Double, count: Int = 8192, rate: Double = 48_000, amp: Float = 0.5) -> [Float] {
+        (0..<count).map { amp * Float(sin(2 * .pi * hz * Double($0) / rate)) }
+    }
+
+    @Test func toneLightsItsOwnBar() {
+        let s = CavaAnalyzer.Settings(bars: 24)
+        for hz in [80.0, 1_000, 6_000] {
+            let cava = CavaAnalyzer(settings: s)
+            for _ in 0..<90 { cava.process(samples: sine(hz), sampleRate: 48_000, fps: 60) }
+            let loudest = cava.bars.indices.max { cava.bars[$0] < cava.bars[$1] }!
+            // The bar whose log-spaced range holds the tone.
+            let expected = Int(log(hz / s.lowHz) / log(s.highHz / s.lowHz) * Double(s.bars))
+            #expect(abs(loudest - expected) <= 1, "\(hz) Hz lit bar \(loudest), expected \(expected)")
+            #expect(cava.bars.allSatisfy { $0 >= 0 && $0 <= 1 })
+        }
+    }
+
+    @Test func autoSensitivityKeepsBarsInRange() {
+        let quiet = CavaAnalyzer(bars: 16), loud = CavaAnalyzer(bars: 16)
+        for _ in 0..<240 {
+            quiet.process(samples: sine(440, amp: 0.01), sampleRate: 48_000, fps: 60)
+            loud.process(samples: sine(440, amp: 0.9), sampleRate: 48_000, fps: 60)
+        }
+        // Both end up near the top regardless of volume.
+        #expect((quiet.bars.max() ?? 0) > 0.7)
+        #expect((loud.bars.max() ?? 0) > 0.7)
+        #expect(quiet.sensitivity > loud.sensitivity)
+    }
+
+    @Test func fallsToRestInSilence() {
+        let cava = CavaAnalyzer(bars: 16)
+        for _ in 0..<60 { cava.process(samples: sine(200), sampleRate: 48_000, fps: 60) }
+        #expect(!cava.isSettled)
+        let hub = AudioFrameHub()
+        for _ in 0..<120 { cava.update(source: "x", playing: false, dt: 1.0 / 60, hub: hub) }
+        #expect(cava.isSettled)
+    }
+
+    @Test func readsFromTheHub() {
+        let hub = AudioFrameHub()
+        let cava = CavaAnalyzer(bars: 16)
+        let tone = sine(1_000)
+        for _ in 0..<60 {
+            hub.write(source: "app", samples: Array(tone.prefix(800)), sampleRate: 48_000)
+            cava.update(source: "app", playing: true, dt: 1.0 / 60, hub: hub)
+        }
+        #expect((cava.bars.max() ?? 0) > 0.5)
+        // The source stops sending: bars fall instead of freezing.
+        for _ in 0..<180 { cava.update(source: "app", playing: true, dt: 1.0 / 60, hub: hub) }
+        #expect(cava.isSettled)
+    }
+
+    @Test func binPlanIsOrderedAndInRange() {
+        let s = CavaAnalyzer.Settings(bars: 32)
+        let plan = CavaAnalyzer.plan(settings: s, sampleRate: 48_000, bassSize: 4096, trebleSize: 1024)
+        #expect(plan.count == 32)
+        for (i, p) in plan.enumerated() {
+            #expect(p.lo >= 1 && p.lo <= p.hi)
+            #expect(p.hi < (p.useBass ? 2048 : 512))
+            if i > 0, plan[i - 1].useBass == p.useBass { #expect(p.lo > plan[i - 1].hi) }
+        }
+    }
+
+    @Test func monstercatSpreadsPeaks() {
+        let out = Monstercat.apply([0, 0, 1, 0, 0])
+        #expect(out[2] == 1)
+        #expect(abs(out[1] - 1 / 1.5) < 1e-5 && abs(out[3] - 1 / 1.5) < 1e-5)
+        #expect(out[0] < out[1])
+    }
+}
+
+@Suite struct VisualizerTests {
+    /// Every ridge, at full height, lands inside the view with a margin, so
+    /// nothing is cut off at the pill's or popover's edge.
+    @Test @MainActor func ridgesStayInsideTheView() {
+        for (placement, aspect) in [(VisualizerPlacement.bar, Float(156) / 22), (.popup, Float(260) / 88), (.popup, Float(260) / 110)] {
+            let r = VisualizerRenderer.Ridge.for(placement)
+            let mvp = VisualizerRenderer.fitted(r, aspect: aspect, margin: [0.04, 0.04])
+            for row in [0, r.rows - 1] {
+                for x in [-r.width / 2, 0, r.width / 2] {
+                    for y in [0, r.height] {
+                        let p = mvp * SIMD4<Float>(x, y, -Float(row) * r.gap, 1)
+                        let ndc = SIMD2(p.x, p.y) / p.w
+                        #expect(abs(ndc.x) <= 0.961 && abs(ndc.y) <= 0.961, "\(placement) row \(row) x \(x) y \(y) → \(ndc)")
+                    }
+                }
+            }
+        }
+    }
+
+    @Test @MainActor func mirroredRidgeTapersToTheEdges() {
+        let ridge = VisualizerRenderer.mirrored([Float](repeating: 1, count: 24), points: 64)
+        #expect(ridge.first == 0 && ridge.last == 0)
+        #expect(ridge[31] > 0.9 && ridge.allSatisfy { $0 >= 0 && $0 <= 1 })
+    }
+
+    @Test @MainActor func colorStopsFromOneToThreeColors() {
+        #expect(VisualizerRenderer.stops([]).count == 3)
+        let one = VisualizerRenderer.stops(["#ff0000"])
+        #expect(one[0] == SIMD4<Float>(1, 0, 0, 1) && one[1] != one[0])
+        let two = VisualizerRenderer.stops(["#000000", "#ffffff"])
+        #expect(two[1].x == 0.5)
+    }
+}

@@ -309,7 +309,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 "lyrics": s.lyrics.map { .object(["lines": .number(Double($0.lines.count)), "synced": .bool($0.isSynced)]) } ?? .null,
                 "spotify": .object(["configured": .bool(s.spotify.configured), "signedIn": .bool(s.spotify.signedIn)]),
                 "audioSources": .array(s.audioSources.map { a in
-                    .object(["id": .string(a.id), "active": .bool(a.isActive), "spectrum": .bool(s.spectra[a.id] != nil)])
+                    .object(["id": .string(a.id), "active": .bool(a.isActive), "spectrum": .bool(AudioFrameHub.shared.source(a.id) != nil)])
                 }),
                 "panels": .number(Double(panels.panelCount)),
                 "subscribers": .number(Double(await bus.subscriberCount)),

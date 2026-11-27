@@ -1,5 +1,4 @@
 #if canImport(AppKit)
-import Accelerate
 import AudioToolbox
 import CoreAudio
 import AppKit
@@ -10,13 +9,12 @@ import GizmoCore
 /// taps (macOS 14.2+), one per app, so a call, a video and music each get
 /// their own levels. Helper processes (a browser's audio service, Zoom's
 /// call host) count as their app. Lists apps playing now and heard in the
-/// last 10 minutes on `audio.sources`, and publishes each active app's
-/// levels on `media.spectrum`. Raw samples go to `AudioFrameHub` and never
-/// onto the bus. Runs only while the bar shows now playing.
+/// last 10 minutes on `audio.sources`. Each app's audio goes to
+/// `AudioFrameHub` as mono samples and never onto the bus; the visualizer
+/// does its own analysis. Runs only while the bar shows now playing.
 public actor SpectrumProvider: Provider {
     public nonisolated let id = "spectrum"
     private var bus: EventBus?
-    private var bands: Int
     private var enabled: Bool
     private var extraSources: [String]
     /// Apps that report now playing media count as sources too.
@@ -37,7 +35,6 @@ public actor SpectrumProvider: Provider {
     static let linger: TimeInterval = 15
 
     public init(settings: MediaSettings) {
-        bands = settings.bands
         enabled = settings.spectrum
         extraSources = settings.audioSources
     }
@@ -57,8 +54,7 @@ public actor SpectrumProvider: Provider {
     public func stop() async { setRunning(false) }
 
     public func update(settings: MediaSettings) {
-        let changed = settings.bands != bands || settings.spectrum != enabled
-        bands = settings.bands
+        let changed = settings.spectrum != enabled
         enabled = settings.spectrum
         if settings.audioSources != extraSources {
             extraSources = settings.audioSources
@@ -122,10 +118,7 @@ public actor SpectrumProvider: Provider {
     private func openTap(_ id: String, _ objects: Set<AudioObjectID>) {
         if let until = retryAfter[id], until > Date() { return }
         closeTap(id)
-        let bus = self.bus
-        let t = AudioTap(source: id, processes: Array(objects), bands: bands) { levels in
-            Task { await bus?.publish(topic: Topic.spectrum, key: id, payload: JSONValue(encoding: SourceSpectrum(source: id, levels: levels))) }
-        }
+        let t = AudioTap(source: id, processes: Array(objects))
         do {
             try t.start()
             taps[id] = t
@@ -141,8 +134,6 @@ public actor SpectrumProvider: Provider {
         if #available(macOS 14.2, *), let t = taps[id] as? AudioTap { t.stop() }
         taps[id] = nil
         tapProcesses[id] = nil
-        let bus = self.bus
-        Task { await bus?.publish(topic: Topic.spectrum, key: id, payload: JSONValue(encoding: SourceSpectrum(source: id, levels: []))) }
     }
 
     private func publishSources() async {
@@ -248,7 +239,7 @@ enum TapError: Error { case status(String, OSStatus) }
 
 @available(macOS 14.2, *)
 final class AudioTap: @unchecked Sendable {
-    private let analyzer: SpectrumAnalyzer
+    private let mixer: MonoMixer
     private var tapID = AudioObjectID(kAudioObjectUnknown)
     private var aggregateID = AudioObjectID(kAudioObjectUnknown)
     private var procID: AudioDeviceIOProcID?
@@ -256,9 +247,9 @@ final class AudioTap: @unchecked Sendable {
 
     private let processes: [AudioObjectID]
 
-    init(source: String, processes: [AudioObjectID], bands: Int, publish: @escaping @Sendable ([Float]) -> Void) {
+    init(source: String, processes: [AudioObjectID]) {
         self.processes = processes
-        analyzer = SpectrumAnalyzer(source: source, bands: bands, publish: publish)
+        mixer = MonoMixer(source: source)
     }
 
     func start() throws {
@@ -288,13 +279,13 @@ final class AudioTap: @unchecked Sendable {
         var size = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
         var addr = AudioObjectPropertyAddress(mSelector: kAudioTapPropertyFormat, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
         try check("tap format", AudioObjectGetPropertyData(tapID, &addr, 0, nil, &size, &format))
-        analyzer.configure(sampleRate: format.mSampleRate,
+        mixer.configure(sampleRate: format.mSampleRate,
                            channels: Int(format.mChannelsPerFrame),
                            interleaved: format.mFormatFlags & kAudioFormatFlagIsNonInterleaved == 0)
 
-        let analyzer = self.analyzer
+        let mixer = self.mixer
         try check("io proc", AudioDeviceCreateIOProcIDWithBlock(&procID, aggregateID, queue) { _, input, _, _, _ in
-            analyzer.consume(UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: input)))
+            mixer.consume(UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: input)))
         })
         try check("start", AudioDeviceStart(aggregateID, procID))
     }
@@ -334,36 +325,19 @@ final class AudioTap: @unchecked Sendable {
     }
 }
 
-/// Mono mix → 1024-point FFT with a Hann window → bands. Used only on the
-/// tap's IO queue.
-final class SpectrumAnalyzer: @unchecked Sendable {
-    private let size = 1024
-    private let log2n: vDSP_Length = 10
+/// Mixes the tap's buffers down to mono and writes them to
+/// `AudioFrameHub`. Used only on the tap's IO queue.
+final class MonoMixer: @unchecked Sendable {
     private let source: String
-    private let bands: Int
-    private let publish: @Sendable ([Float]) -> Void
     private var mono: [Float] = []
-    private let setup: FFTSetup
-    private var window: [Float]
-    private var samples: [Float] = []
-    private var levels: [Float]
     private var sampleRate: Double = 48_000
     private var channels = 2
     private var interleaved = true
-    private var lastPublish: UInt64 = 0
 
-    init(source: String, bands: Int, publish: @escaping @Sendable ([Float]) -> Void) {
+    init(source: String) {
         self.source = source
-        self.bands = bands
-        self.publish = publish
-        setup = vDSP_create_fftsetup(10, FFTRadix(kFFTRadix2))!
-        window = [Float](repeating: 0, count: 1024)
-        vDSP_hann_window(&window, 1024, Int32(vDSP_HANN_NORM))
-        levels = [Float](repeating: 0, count: bands)
-        samples.reserveCapacity(2048)
+        mono.reserveCapacity(4096)
     }
-
-    deinit { vDSP_destroy_fftsetup(setup) }
 
     func configure(sampleRate: Double, channels: Int, interleaved: Bool) {
         self.sampleRate = sampleRate > 0 ? sampleRate : 48_000
@@ -387,35 +361,6 @@ final class SpectrumAnalyzer: @unchecked Sendable {
             mono.append(contentsOf: UnsafeBufferPointer(start: floats, count: frames))
         }
         mono.withUnsafeBufferPointer { AudioFrameHub.shared.write(source: source, samples: $0, sampleRate: sampleRate) }
-        samples.append(contentsOf: mono)
-        guard samples.count >= size else { return }
-        let chunk = Array(samples.suffix(size))
-        samples.removeAll(keepingCapacity: true)
-
-        // At most ~30 updates a second.
-        let now = DispatchTime.now().uptimeNanoseconds
-        guard now - lastPublish > 33_000_000 else { return }
-        lastPublish = now
-
-        var windowed = [Float](repeating: 0, count: size)
-        vDSP_vmul(chunk, 1, window, 1, &windowed, 1, vDSP_Length(size))
-        var real = [Float](repeating: 0, count: size / 2)
-        var imag = [Float](repeating: 0, count: size / 2)
-        var power = [Float](repeating: 0, count: size / 2)
-        real.withUnsafeMutableBufferPointer { rp in
-            imag.withUnsafeMutableBufferPointer { ip in
-                var split = DSPSplitComplex(realp: rp.baseAddress!, imagp: ip.baseAddress!)
-                windowed.withUnsafeBufferPointer { wp in
-                    wp.baseAddress!.withMemoryRebound(to: DSPComplex.self, capacity: size / 2) {
-                        vDSP_ctoz($0, 2, &split, 1, vDSP_Length(size / 2))
-                    }
-                }
-                vDSP_fft_zrip(setup, &split, 1, log2n, FFTDirection(FFT_FORWARD))
-                vDSP_zvmags(&split, 1, &power, 1, vDSP_Length(size / 2))
-            }
-        }
-        levels = Spectrum.smooth(levels, Spectrum.bands(power: power, sampleRate: sampleRate, count: bands))
-        publish(levels)
     }
 }
 #endif

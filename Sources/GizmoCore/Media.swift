@@ -1,5 +1,16 @@
 import Foundation
 
+/// How the now playing visualizer draws.
+public enum VisualizerStyle: String, Sendable, Codable, CaseIterable {
+    /// The spectrum leaves a trail of ridges sliding back into depth,
+    /// mirrored with the bass in the middle.
+    case ridgeline
+    /// Classic cava bars, flat.
+    case bars
+    /// No visualizer.
+    case off
+}
+
 /// `[media]` in config.toml.
 public struct MediaSettings: Sendable, Equatable, Decodable {
     /// Folder holding `mediaremote-adapter.pl` and `MediaRemoteAdapter.framework`
@@ -18,17 +29,22 @@ public struct MediaSettings: Sendable, Equatable, Decodable {
     /// players, call apps and browsers. Apps that only play alerts are left
     /// out unless listed here.
     public var audioSources: [String]
+    /// How the visualizer draws: `ridgeline` (3D ridges, the default),
+    /// `bars` (flat cava bars) or `off`.
+    public var visualizer: VisualizerStyle
 
-    public init(adapter: String? = nil, spectrum: Bool = true, bands: Int = 24, width: Double = 156, audioSources: [String] = []) {
+    public init(adapter: String? = nil, spectrum: Bool = true, bands: Int = 24, width: Double = 156,
+                visualizer: VisualizerStyle = .ridgeline, audioSources: [String] = []) {
         self.audioSources = audioSources
         self.adapter = adapter
         self.spectrum = spectrum
         self.bands = bands
         self.width = width
+        self.visualizer = visualizer
     }
 
     enum CodingKeys: String, CodingKey {
-        case adapter, spectrum, bands, width
+        case adapter, spectrum, bands, width, visualizer
         case audioSources = "audio_sources"
     }
 
@@ -40,6 +56,8 @@ public struct MediaSettings: Sendable, Equatable, Decodable {
         bands = min(max(try c.decodeIfPresent(Int.self, forKey: .bands) ?? d.bands, 4), 64)
         width = try c.decodeIfPresent(Double.self, forKey: .width) ?? d.width
         audioSources = try c.decodeIfPresent([String].self, forKey: .audioSources) ?? d.audioSources
+        let style = try c.decodeIfPresent(String.self, forKey: .visualizer)
+        visualizer = style.flatMap { VisualizerStyle(rawValue: $0.lowercased()) } ?? d.visualizer
     }
 }
 
@@ -279,36 +297,5 @@ struct HSL {
             return p
         }
         return RGBA(r: f(h + 1 / 3), g: f(h), b: f(h - 1 / 3))
-    }
-}
-
-/// Turns FFT power into bar heights.
-public enum Spectrum {
-    /// Groups `power` (|X|² for bins 0..<n, n = fftSize/2) into `count`
-    /// log-spaced bands between `low` and `high` Hz, as 0...1 on a dB scale
-    /// from `floor` to `ceiling`.
-    public static func bands(power: [Float], sampleRate: Double, count: Int,
-                             low: Double = 40, high: Double = 16_000,
-                             floor: Float = -70, ceiling: Float = -10) -> [Float] {
-        guard power.count > 1, count > 0 else { return [] }
-        let binHz = sampleRate / Double(power.count * 2)
-        let ratio = pow(high / low, 1 / Double(count))
-        var out = [Float](repeating: 0, count: count)
-        let norm = Float(power.count * power.count)
-        for i in 0..<count {
-            let f0 = low * pow(ratio, Double(i)), f1 = f0 * ratio
-            let b0 = max(1, Int(f0 / binHz)), b1 = min(power.count - 1, max(b0, Int(f1 / binHz)))
-            var peak: Float = 0
-            if b0 <= b1 { for b in b0...b1 { peak = max(peak, power[b]) } }
-            let db = 10 * log10(max(peak / norm, 1e-12))
-            out[i] = min(max((db - floor) / (ceiling - floor), 0), 1)
-        }
-        return out
-    }
-
-    /// Fast rise, slow fall, so bars read as motion and not flicker.
-    public static func smooth(_ previous: [Float], _ next: [Float], attack: Float = 0.6, decay: Float = 0.15) -> [Float] {
-        guard previous.count == next.count else { return next }
-        return zip(previous, next).map { p, n in n > p ? p + (n - p) * attack : p + (n - p) * decay }
     }
 }

@@ -49,29 +49,10 @@ public final class BarStore {
         icons = resolver
     }
 
-    /// Live levels per audio source, kept out of `snapshot`: they change
-    /// ~30 times a second per source, and only the bars drawing them
-    /// should redraw, not every view that reads the snapshot.
-    @ObservationIgnored private var levelBoxes: [String: SourceLevels] = [:]
-
-    public func levels(for source: String) -> SourceLevels {
-        if let box = levelBoxes[source] { return box }
-        let box = SourceLevels()
-        levelBoxes[source] = box
-        return box
-    }
-
     public func apply(_ event: BarEvent) {
-        if event.topic == Topic.spectrum {
-            if let s = event.payload.decode(SourceSpectrum.self) { levels(for: s.source).levels = s.levels }
-            return
-        }
         snapshot.apply(event)
-        if event.topic == Topic.audioSources {
-            let active = Set(snapshot.audioSources.filter(\.isActive).map(\.id))
-            for (id, box) in levelBoxes where !active.contains(id) && !box.levels.isEmpty { box.levels = [] }
-        }
     }
+
 
     /// Feeds bus events into the store until the stream ends.
     public func attach(to bus: EventBus) {
@@ -81,12 +62,6 @@ public final class BarStore {
             }
         }
     }
-}
-
-@MainActor
-@Observable
-public final class SourceLevels {
-    public var levels: [Float] = []
 }
 
 /// Requests widgets send to the app (and, later, plugins via ctx.emit).

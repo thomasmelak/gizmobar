@@ -139,11 +139,15 @@ adapter = "~/.local/share/mediaremote-adapter"   # holds mediaremote-adapter.pl 
 ```
 
 Without it the bar falls back to `nowplaying-cli` when that's installed.
-Each app that makes sound gets its own spectrum from a Core Audio process
-tap (macOS 14.2+, asks for audio capture once); deny it or set
-`spectrum = false` and the bars animate on their own. Apps that aren't
-players (calls, videos) show in the pill by name, and the popover lists
-everything playing now or heard in the last 10 minutes.
+The visualizer listens to each app on its own through Core Audio taps
+(macOS 14.2+, asks for audio capture once) and analyzes the sound the way
+[cava](https://github.com/karlstav/cava) does. It draws 3D ridges in the
+album's colors by default; `visualizer = "bars"` gives flat bars and
+`"off"` hides it. Deny audio capture or set `spectrum = false` and it
+animates on its own.
+Apps that aren't players (calls, videos) show in the pill by name, and the
+popover lists media apps, call apps and browsers playing now or heard in
+the last 10 minutes (`[media] audio_sources = ["bundle.id"]` adds more).
 
 Lyrics come from [LRCLIB](https://lrclib.net), synced when it has timings
 (`[lyrics] enabled = false` to turn them off).

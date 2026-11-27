@@ -94,14 +94,3 @@ public enum ShownSource: Sendable, Equatable {
         return nil
     }
 }
-
-/// `media.spectrum` payloads: levels for one source.
-public struct SourceSpectrum: Sendable, Equatable, Codable {
-    public var source: String
-    public var levels: [Float]
-
-    public init(source: String, levels: [Float]) {
-        self.source = source
-        self.levels = levels
-    }
-}
