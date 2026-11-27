@@ -19,6 +19,30 @@ public struct AudioSource: Sendable, Equatable, Codable, Identifiable {
     }
 }
 
+/// Which apps count as sound sources: media players, call apps and
+/// browsers by default (not apps that only chime, like chat clients), plus
+/// any app that reports now playing media, plus `[media] audio_sources`.
+public enum AudioSourceFilter {
+    public static let defaults: Set<String> = [
+        // Players
+        "com.spotify.client", "com.apple.Music", "com.apple.TV", "com.apple.podcasts", "com.apple.QuickTimePlayerX",
+        "com.colliderli.iina", "org.videolan.vlc", "com.tidal.desktop", "com.deezer.deezer-desktop", "com.amazon.music",
+        "tv.plex.desktop", "com.soundcloud.desktop", "com.apple.iBooksX", "com.audible.mac",
+        // Calls
+        "us.zoom.xos", "com.microsoft.teams2", "com.microsoft.teams", "com.apple.FaceTime", "com.hnc.Discord",
+        "com.cisco.webexmeetingsapp", "com.webex.meetingmanager", "com.skype.skype",
+        // Browsers
+        "com.google.Chrome", "com.google.Chrome.beta", "com.google.Chrome.canary", "com.apple.Safari",
+        "com.apple.SafariTechnologyPreview", "org.mozilla.firefox", "org.mozilla.firefoxdeveloperedition",
+        "company.thebrowser.Browser", "com.brave.Browser", "com.microsoft.edgemac", "com.vivaldi.Vivaldi",
+        "com.operasoftware.Opera", "app.zen-browser.zen", "org.chromium.Chromium",
+    ]
+
+    public static func allows(_ id: String, extra: [String], players: Set<String>) -> Bool {
+        defaults.contains(id) || extra.contains(id) || players.contains(id)
+    }
+}
+
 /// Apps playing now, then the ones heard recently, most recent first.
 public struct AudioSourcesStatus: Sendable, Equatable, Codable {
     public var sources: [AudioSource]

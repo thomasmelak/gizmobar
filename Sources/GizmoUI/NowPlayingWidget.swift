@@ -148,7 +148,7 @@ struct SpectrumBars: View {
     @State private var fake: [Float] = []
 
     var body: some View {
-        let live = store.snapshot.spectra[source] ?? []
+        let live = store.levels(for: source).levels
         let count = store.config.media.bands
         Group {
             if !playing {
@@ -404,7 +404,7 @@ private struct PlaylistRow: View {
         let t = store.theme
         HStack(spacing: 8) {
             Group {
-                if let path = playlist.artworkPath, let image = NSImage(contentsOfFile: path) {
+                if let path = playlist.artworkPath, let image = ArtImages.image(path) {
                     Image(nsImage: image).resizable().scaledToFill()
                 } else {
                     Image(systemName: "music.note.list").foregroundStyle(Color(hex: tint))
@@ -580,7 +580,7 @@ private struct ArtCarousel: View {
         let color = card?.artColor ?? tint
         ZStack {
             RoundedRectangle(cornerRadius: 10).fill(Color(hex: color).opacity(0.22))
-            if let path = card?.artworkPath, let image = NSImage(contentsOfFile: path) {
+            if let path = card?.artworkPath, let image = ArtImages.image(path) {
                 Image(nsImage: image).resizable().interpolation(.high).scaledToFill()
             } else {
                 Image(systemName: symbol).font(.system(size: 28, weight: .light)).foregroundStyle(Color(hex: color))
@@ -604,6 +604,24 @@ private struct ArtCarousel: View {
     }
 }
 
+/// Decoded artwork by file path, so redraws don't read and decode the file
+/// again (art files are written once per track and never change).
+@MainActor
+enum ArtImages {
+    private static let cache: NSCache<NSString, NSImage> = {
+        let c = NSCache<NSString, NSImage>()
+        c.countLimit = 64
+        return c
+    }()
+
+    static func image(_ path: String) -> NSImage? {
+        if let hit = cache.object(forKey: path as NSString) { return hit }
+        guard let image = NSImage(contentsOfFile: path) else { return nil }
+        cache.setObject(image, forKey: path as NSString)
+        return image
+    }
+}
+
 /// Album art that crossfades between tracks and tilts toward the pointer.
 private struct ArtView: View {
     let path: String?
@@ -616,7 +634,7 @@ private struct ArtView: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 12).fill(Color(hex: tint).opacity(0.25))
-            if let path, let image = NSImage(contentsOfFile: path) {
+            if let path, let image = ArtImages.image(path) {
                 Image(nsImage: image).resizable().interpolation(.high).scaledToFill()
                     .id(key)
                     .transition(.opacity)

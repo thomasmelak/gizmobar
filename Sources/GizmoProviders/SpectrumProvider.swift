@@ -18,6 +18,10 @@ public actor SpectrumProvider: Provider {
     private var bus: EventBus?
     private var bands: Int
     private var enabled: Bool
+    private var extraSources: [String]
+    /// Apps that report now playing media count as sources too.
+    private var players: Set<String> = []
+    private var watch: Task<Void, Never>?
     private var running = false
     private var unsupported = false
     private var loop: Task<Void, Never>?
@@ -35,9 +39,20 @@ public actor SpectrumProvider: Provider {
     public init(settings: MediaSettings) {
         bands = settings.bands
         enabled = settings.spectrum
+        extraSources = settings.audioSources
     }
 
-    public func start(bus: EventBus) async { self.bus = bus }
+    public func start(bus: EventBus) async {
+        self.bus = bus
+        watch = Task { [weak self] in
+            for await event in await bus.subscribe(prefixes: [Topic.media]) {
+                guard let status = event.payload.decode(NowPlayingStatus.self) else { continue }
+                await self?.setPlayers(Set(status.sources.map(\.id)))
+            }
+        }
+    }
+
+    private func setPlayers(_ ids: Set<String>) { players = ids }
 
     public func stop() async { setRunning(false) }
 
@@ -45,6 +60,10 @@ public actor SpectrumProvider: Provider {
         let changed = settings.bands != bands || settings.spectrum != enabled
         bands = settings.bands
         enabled = settings.spectrum
+        if settings.audioSources != extraSources {
+            extraSources = settings.audioSources
+            known = known.filter { AudioSourceFilter.allows($0.key, extra: extraSources, players: players) }
+        }
         if changed, running { setRunning(false); setRunning(true) }
     }
 
@@ -81,7 +100,8 @@ public actor SpectrumProvider: Provider {
         // Group the processes making sound by app.
         var active: [String: Set<AudioObjectID>] = [:]
         for p in processes where p.isRunningOutput {
-            guard let app = apps.app(forBundleID: p.bundleID, pid: p.pid) else { continue }
+            guard let app = apps.app(forBundleID: p.bundleID, pid: p.pid),
+                  AudioSourceFilter.allows(app, extra: extraSources, players: players) else { continue }
             active[app, default: []].insert(p.object)
         }
 

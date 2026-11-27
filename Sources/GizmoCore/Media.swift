@@ -14,15 +14,23 @@ public struct MediaSettings: Sendable, Equatable, Decodable {
     public var bands: Int
     /// Width of the track text on the bar, in points.
     public var width: Double
+    /// More apps (bundle IDs) to list as sound sources, on top of media
+    /// players, call apps and browsers. Apps that only play alerts are left
+    /// out unless listed here.
+    public var audioSources: [String]
 
-    public init(adapter: String? = nil, spectrum: Bool = true, bands: Int = 24, width: Double = 156) {
+    public init(adapter: String? = nil, spectrum: Bool = true, bands: Int = 24, width: Double = 156, audioSources: [String] = []) {
+        self.audioSources = audioSources
         self.adapter = adapter
         self.spectrum = spectrum
         self.bands = bands
         self.width = width
     }
 
-    enum CodingKeys: String, CodingKey { case adapter, spectrum, bands, width }
+    enum CodingKeys: String, CodingKey {
+        case adapter, spectrum, bands, width
+        case audioSources = "audio_sources"
+    }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -31,6 +39,7 @@ public struct MediaSettings: Sendable, Equatable, Decodable {
         spectrum = try c.decodeIfPresent(Bool.self, forKey: .spectrum) ?? d.spectrum
         bands = min(max(try c.decodeIfPresent(Int.self, forKey: .bands) ?? d.bands, 4), 64)
         width = try c.decodeIfPresent(Double.self, forKey: .width) ?? d.width
+        audioSources = try c.decodeIfPresent([String].self, forKey: .audioSources) ?? d.audioSources
     }
 }
 
