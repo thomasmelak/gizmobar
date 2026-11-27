@@ -76,13 +76,27 @@ public struct BarSettings: Sendable, Equatable, Decodable {
     public var margin: Double
     /// Glass behind each pill. The bar between pills is always transparent.
     public var glass: Bool
+    /// When the bar slides off screen until the pointer touches its edge,
+    /// like the macOS menu bar's auto-hide.
+    public var autohide: AutoHide
 
-    public init(position: Edge = .bottom, height: Double = 40, displays: Displays = .all, margin: Double = 6, glass: Bool = true) {
+    public enum AutoHide: String, Sendable, Decodable {
+        /// Always shown.
+        case never
+        /// Hidden while a fullscreen window covers that display.
+        case fullscreen
+        /// Hidden unless the pointer is at the edge.
+        case always
+    }
+
+    public init(position: Edge = .bottom, height: Double = 40, displays: Displays = .all, margin: Double = 6, glass: Bool = true,
+                autohide: AutoHide = .fullscreen) {
         self.position = position
         self.height = height
         self.displays = displays
         self.margin = margin
         self.glass = glass
+        self.autohide = autohide
     }
 
     public init(from decoder: Decoder) throws {
@@ -93,9 +107,10 @@ public struct BarSettings: Sendable, Equatable, Decodable {
         displays = try c.decodeIfPresent(Displays.self, forKey: .displays) ?? d.displays
         margin = try c.decodeIfPresent(Double.self, forKey: .margin) ?? d.margin
         glass = try c.decodeIfPresent(Bool.self, forKey: .glass) ?? d.glass
+        autohide = try c.decodeIfPresent(AutoHide.self, forKey: .autohide) ?? d.autohide
     }
 
-    enum CodingKeys: String, CodingKey { case position, height, displays, margin, glass }
+    enum CodingKeys: String, CodingKey { case position, height, displays, margin, glass, autohide }
 }
 
 /// Which widgets go where, by id. Built-ins: `workspaces`, `front_app`,
