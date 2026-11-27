@@ -89,6 +89,8 @@ public enum BarRequest {
     public static let mediaToggle = "media.toggle"
     public static let mediaNext = "media.next"
     public static let mediaPrevious = "media.previous"
+    /// Back a track even when the current one is a few seconds in.
+    public static let mediaPreviousTrack = "media.previous-track"
     public static let mediaShuffle = "media.shuffle"
     public static let mediaRepeat = "media.repeat"
     public static func mediaSeek(_ seconds: Double) -> String { "media.seek:\(seconds)" }

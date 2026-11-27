@@ -66,6 +66,33 @@ public struct MediaTrack: Sendable, Equatable, Codable {
     public var line: String { artist.isEmpty ? title : "\(title) · \(artist)" }
 }
 
+/// A track beside the current one: one played before it, or one queued.
+public struct TrackCard: Sendable, Equatable, Codable, Identifiable {
+    public var title: String
+    public var artist: String
+    public var artworkPath: String?
+    public var artColor: String?
+    /// The player's ID for it, when known (a Spotify URI).
+    public var uri: String?
+    /// `MediaTrack.key` of the track it came from, to find its cached art.
+    public var key: String?
+
+    public init(title: String, artist: String = "", artworkPath: String? = nil, artColor: String? = nil, uri: String? = nil) {
+        self.title = title
+        self.artist = artist
+        self.artworkPath = artworkPath
+        self.artColor = artColor
+        self.uri = uri
+    }
+
+    public init(_ t: MediaTrack) {
+        self.init(title: t.title, artist: t.artist, artworkPath: t.artworkPath, artColor: t.artColor)
+        key = t.key
+    }
+
+    public var id: String { uri ?? "\(title)\u{1F}\(artist)" }
+}
+
 public struct MediaSource: Sendable, Equatable, Codable, Identifiable {
     public enum State: String, Sendable, Codable { case playing, paused, stopped }
     public enum Repeat: String, Sendable, Codable { case off, one, all }
@@ -77,6 +104,10 @@ public struct MediaSource: Sendable, Equatable, Codable, Identifiable {
     public var track: MediaTrack?
     public var shuffle: Bool?
     public var repeatMode: Repeat?
+    /// Tracks played before this one here, most recent first.
+    public var previous: [TrackCard]?
+    /// What plays next, when the player says (Spotify, signed in).
+    public var upNext: [TrackCard]?
 
     public init(id: String, name: String, state: State, track: MediaTrack? = nil, shuffle: Bool? = nil, repeatMode: Repeat? = nil) {
         self.id = id
@@ -95,6 +126,35 @@ public struct MediaSource: Sendable, Equatable, Codable, Identifiable {
         guard isPlaying, let at = t.elapsedAt else { return e }
         let p = e + date.timeIntervalSince(at)
         return t.duration.map { min(p, $0) } ?? p
+    }
+}
+
+/// Tracks heard per source, most recent first, without repeats.
+public struct TrackHistory: Sendable, Equatable {
+    public private(set) var cards: [TrackCard] = []
+    public let limit: Int
+
+    public init(limit: Int = 5) { self.limit = limit }
+
+    /// Records `track` as played (call when it's replaced by another).
+    public mutating func push(_ track: MediaTrack) {
+        let card = TrackCard(track)
+        cards.removeAll { $0.id == card.id }
+        cards.insert(card, at: 0)
+        if cards.count > limit { cards.removeLast(cards.count - limit) }
+    }
+
+    /// Adds art fetched after the track was recorded.
+    public mutating func setArt(key: String, path: String, color: String?) {
+        for i in cards.indices where cards[i].key == key && cards[i].artworkPath == nil {
+            cards[i].artworkPath = path
+            cards[i].artColor = color
+        }
+    }
+
+    /// Drops the newest card when the player went back to it.
+    public mutating func returned(to track: MediaTrack) {
+        if cards.first?.id == TrackCard(track).id { cards.removeFirst() }
     }
 }
 

@@ -151,6 +151,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case BarRequest.mediaToggle: await media.send(.toggle)
             case BarRequest.mediaNext: await media.send(.next)
             case BarRequest.mediaPrevious: await media.send(.previous)
+            case BarRequest.mediaPreviousTrack: await media.send(.previousTrack)
             case BarRequest.mediaShuffle: await media.send(.shuffle)
             case BarRequest.mediaRepeat: await media.send(.repeat)
             case "media.seek": if let v = arg.flatMap(Double.init) { await media.seek(v) }

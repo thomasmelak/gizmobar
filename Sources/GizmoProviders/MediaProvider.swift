@@ -21,6 +21,8 @@ public actor MediaProvider: Provider {
     private var adapterState: [String: JSONValue] = [:]
     private var pollTask: Task<Void, Never>?
     private var lastArtKey: [String: String] = [:]
+    private var history: [String: TrackHistory] = [:]
+    private var upNext: [String: [TrackCard]] = [:]
     private let scripts = ScriptRunner()
 
     static let spotify = "com.spotify.client"
@@ -72,7 +74,9 @@ public actor MediaProvider: Provider {
 
     // MARK: Commands
 
-    public enum Action: String, Sendable { case toggle, next, previous, shuffle, `repeat` }
+    /// `previous` restarts the track first when it's a few seconds in, as
+    /// players do; `previousTrack` always goes back a track.
+    public enum Action: String, Sendable { case toggle, next, previous, previousTrack, shuffle, `repeat` }
 
     public func send(_ command: Action) async {
         guard let id = NowPlayingStatus.choose(Array(sources.values), picked: picked), let source = sources[id] else { return }
@@ -83,16 +87,18 @@ public actor MediaProvider: Provider {
             case .toggle: s = "playpause"
             case .next: s = "next track"
             case .previous: s = "previous track"
+            case .previousTrack: s = "set player position to 0\nprevious track"
             case .shuffle: s = "set shuffling to not shuffling"
             case .repeat: s = "set repeating to not repeating"
             }
-            _ = await scripts.run("tell application \"Spotify\" to \(s)") { _ in true }
+            _ = await scripts.run("tell application \"Spotify\"\n\(s)\nend tell") { _ in true }
         case Self.music:
             let s: String
             switch command {
             case .toggle: s = "playpause"
             case .next: s = "next track"
             case .previous: s = "back track"
+            case .previousTrack: s = "previous track"
             case .shuffle: s = "set shuffle enabled to not shuffle enabled"
             case .repeat:
                 let next: String = switch source.repeatMode ?? .off { case .off: "all"; case .all: "one"; case .one: "off" }
@@ -103,7 +109,7 @@ public actor MediaProvider: Provider {
             switch command {
             case .toggle: await generic(adapterArgs: ["send", "2"], cli: ["togglePlayPause"])
             case .next: await generic(adapterArgs: ["send", "4"], cli: ["next"])
-            case .previous: await generic(adapterArgs: ["send", "5"], cli: ["previous"])
+            case .previous, .previousTrack: await generic(adapterArgs: ["send", "5"], cli: ["previous"])
             case .shuffle, .repeat: return
             }
             await pollOnce()
@@ -166,7 +172,7 @@ public actor MediaProvider: Provider {
         var track = MediaTrack(title: f[0], artist: f[1], album: f[2], duration: Double(f[4].replacingOccurrences(of: ",", with: ".")),
                                elapsed: Double(f[5].replacingOccurrences(of: ",", with: ".")), elapsedAt: Date())
         keepArt(&track, from: sources[id]?.track)
-        sources[id] = MediaSource(id: id, name: app, state: state, track: track, shuffle: f[6] == "true", repeatMode: repeatMode)
+        record(MediaSource(id: id, name: app, state: state, track: track, shuffle: f[6] == "true", repeatMode: repeatMode))
         await publish()
         if track.artworkPath == nil {
             if id == Self.spotify, let url = URL(string: f[8]), !f[8].isEmpty {
@@ -274,7 +280,7 @@ public actor MediaProvider: Provider {
                                duration: num("duration"), elapsed: num("elapsedTime"), elapsedAt: Date())
         keepArt(&track, from: sources[id]?.track)
         let name = await MainActor.run { Self.appName(id) }
-        sources[id] = MediaSource(id: id, name: name, state: playing ? .playing : .paused, track: track)
+        record(MediaSource(id: id, name: name, state: playing ? .playing : .paused, track: track))
         await publish()
         if track.artworkPath == nil {
             await loadArt(for: id, key: track.key) { await art(s) }
@@ -348,16 +354,45 @@ public actor MediaProvider: Provider {
 
     // MARK: State
 
+    /// Stores a refreshed source, noting the track it replaced in history.
+    private func record(_ source: MediaSource) {
+        let id = source.id
+        if let old = sources[id]?.track, let new = source.track, old.key != new.key {
+            if history[id]?.cards.first?.id == TrackCard(new).id {
+                history[id]?.returned(to: new)
+            } else {
+                var h = history[id] ?? TrackHistory()
+                h.push(old)
+                history[id] = h
+            }
+        }
+        sources[id] = source
+    }
+
+    /// Sets what plays next on a source (from the Spotify queue).
+    public func setUpNext(_ id: String, _ cards: [TrackCard]?) async {
+        guard upNext[id] != cards else { return }
+        upNext[id] = cards
+        await publish()
+    }
+
     private func remove(_ id: String) async {
         guard sources[id] != nil else { return }
         sources[id] = nil
         lastArtKey[id] = nil
+        history[id] = nil
+        upNext[id] = nil
         await publish()
     }
 
     private func publish() async {
         let order = [Self.spotify, Self.music]
-        let list = sources.values.sorted { a, b in
+        let list = sources.values.map { s -> MediaSource in
+            var s = s
+            s.previous = history[s.id]?.cards
+            s.upNext = upNext[s.id]
+            return s
+        }.sorted { a, b in
             let ia = order.firstIndex(of: a.id) ?? 2, ib = order.firstIndex(of: b.id) ?? 2
             return ia != ib ? ia < ib : a.name < b.name
         }

@@ -222,10 +222,8 @@ struct NowPlayingPopover: View {
                 case .media(let source):
                     if let track = source.track {
                         let tint = track.artColor ?? t.accent
-                        ArtView(path: track.artworkPath, key: track.key, tint: tint) {
-                            store.request(BarRequest.mediaToggle)
-                        }
-                        .frame(maxWidth: .infinity)
+                        ArtCarousel(source: source, track: track, tint: tint)
+                            .frame(maxWidth: .infinity)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(track.title).font(.custom(t.font, size: t.fontSize + 2).bold()).lineLimit(2)
                             if !track.artist.isEmpty { Text(track.artist).foregroundStyle(Color(hex: tint)).lineLimit(1) }
@@ -334,11 +332,113 @@ private struct SourceRow: View {
     }
 }
 
+/// The current art with the previous track peeking on the left and the
+/// next one on the right (when the player shares its queue). Drag left for
+/// the next track, right for the previous one; click to play or pause.
+private struct ArtCarousel: View {
+    let source: MediaSource
+    let track: MediaTrack
+    let tint: String
+    @Environment(BarStore.self) private var store
+    @State private var drag: CGFloat = 0
+    /// Set while a swipe waits for the player to change tracks.
+    @State private var swiped: CGFloat?
+
+    static let size: CGFloat = 200
+    static let side: CGFloat = 132
+    static let threshold: CGFloat = 60
+
+    var body: some View {
+        let x = swiped ?? drag
+        let progress = min(abs(x) / Self.side, 1)
+        ZStack {
+            neighbor(source.previous?.first, symbol: "backward.fill", at: -1, x: x)
+            neighbor(source.upNext?.first, symbol: "forward.fill", at: 1, x: x)
+            ArtView(path: track.artworkPath, key: track.key, tint: tint, size: Self.size) {
+                store.request(BarRequest.mediaToggle)
+            }
+            .offset(x: x)
+            .scaleEffect(1 - 0.18 * progress)
+            .rotation3DEffect(.degrees(Double(-x / Self.side) * 35), axis: (x: 0, y: 1, z: 0), perspective: 0.6)
+            .zIndex(1)
+        }
+        .frame(height: Self.size + 20)
+        .frame(maxWidth: .infinity)
+        .clipped()
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture(minimumDistance: 8)
+                .onChanged { g in
+                    guard swiped == nil else { return }
+                    drag = g.translation.width
+                }
+                .onEnded { g in
+                    let dx = g.predictedEndTranslation.width
+                    if dx < -Self.threshold {
+                        commit(to: -Self.side, BarRequest.mediaNext)
+                    } else if dx > Self.threshold {
+                        commit(to: Self.side, BarRequest.mediaPreviousTrack)
+                    } else {
+                        withAnimation(.spring(duration: 0.35)) { drag = 0 }
+                    }
+                }
+        )
+        .onChange(of: track.key) {
+            // The new track arrived: show it centered.
+            swiped = nil
+            drag = 0
+        }
+    }
+
+    private func commit(to x: CGFloat, _ request: String) {
+        withAnimation(.spring(duration: 0.3)) { swiped = x }
+        drag = 0
+        store.request(request)
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(3))
+            if swiped == x { withAnimation(.spring(duration: 0.35)) { swiped = nil } }
+        }
+    }
+
+    /// A neighbor card: the track's art when known, else an empty tile
+    /// that only shows while dragging toward it.
+    @ViewBuilder
+    private func neighbor(_ card: TrackCard?, symbol: String, at slot: CGFloat, x: CGFloat) -> some View {
+        let toward = slot < 0 ? max(x, 0) : max(-x, 0)
+        let progress = min(toward / Self.side, 1)
+        let color = card?.artColor ?? tint
+        ZStack {
+            RoundedRectangle(cornerRadius: 10).fill(Color(hex: color).opacity(0.22))
+            if let path = card?.artworkPath, let image = NSImage(contentsOfFile: path) {
+                Image(nsImage: image).resizable().interpolation(.high).scaledToFill()
+            } else {
+                Image(systemName: symbol).font(.system(size: 28, weight: .light)).foregroundStyle(Color(hex: color))
+            }
+        }
+        .frame(width: Self.size, height: Self.size)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(alignment: .bottom) {
+            if let card, progress > 0.4 {
+                Text(card.title).font(.system(size: 11, weight: .semibold)).lineLimit(1)
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .padding(8)
+                    .transition(.opacity)
+            }
+        }
+        .scaleEffect(0.82 + 0.18 * progress)
+        .rotation3DEffect(.degrees(Double(slot) * -35 * (1 - progress)), axis: (x: 0, y: 1, z: 0), perspective: 0.6)
+        .offset(x: slot * Self.side + x)
+        .opacity(card == nil ? Double(progress) : 0.55 + 0.45 * progress)
+    }
+}
+
 /// Album art that crossfades between tracks and tilts toward the pointer.
 private struct ArtView: View {
     let path: String?
     let key: String
     let tint: String
+    var size: CGFloat = 220
     let onTap: @MainActor () -> Void
     @State private var tilt: CGSize = .zero
 
@@ -353,7 +453,7 @@ private struct ArtView: View {
                 Image(systemName: "music.note").font(.system(size: 54, weight: .ultraLight)).foregroundStyle(Color(hex: tint))
             }
         }
-        .frame(width: 220, height: 220)
+        .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: Color(hex: tint).opacity(0.45), radius: 18, y: 6)
         .rotation3DEffect(.degrees(Double(tilt.height) * 10), axis: (x: 1, y: 0, z: 0))
@@ -362,7 +462,7 @@ private struct ArtView: View {
         .animation(.easeInOut(duration: 0.4), value: key)
         .onContinuousHover { phase in
             switch phase {
-            case .active(let p): tilt = CGSize(width: (p.x - 110) / 110, height: (p.y - 110) / 110)
+            case .active(let p): tilt = CGSize(width: (p.x - size / 2) / (size / 2), height: (p.y - size / 2) / (size / 2))
             case .ended: tilt = .zero
             }
         }
