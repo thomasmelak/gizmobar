@@ -124,5 +124,17 @@
   "Google Password Manager 1": "com.google.Chrome.app.kajebgjangihfbkjfejcanhanjmmbcfd",
   "Dbirr": "com.google.Chrome.app.ilelhkccloibicpoflioommdepkioejm",
   "DaGrouper Analysis Dashboard": "com.google.Chrome.app.pohjkpcjnabhecjackhgnpkjndgelbhe",
-  "DaGrouper": "com.google.Chrome.app.pohjkpcjnabhecjackhgnpkjndgelbhe"
+  "DaGrouper": "com.google.Chrome.app.pohjkpcjnabhecjackhgnpkjndgelbhe",
+  "Xcode": "com.apple.dt.Xcode",
+  "Firefox": "org.mozilla.firefox",
+  "Discord": "com.hnc.Discord",
+  "Microsoft Teams": "com.microsoft.teams2",
+  "Teams": "com.microsoft.teams2",
+  "Microsoft Teams (work or school)": "com.microsoft.teams2",
+  "Microsoft Outlook": "com.microsoft.Outlook",
+  "Outlook": "com.microsoft.Outlook",
+  "Figma": "com.figma.Desktop",
+  "Docker Desktop": "com.docker.docker",
+  "Docker": "com.docker.docker",
+  "Postman": "com.postmanlabs.mac"
 }

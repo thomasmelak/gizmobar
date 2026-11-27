@@ -9,7 +9,8 @@ Start a new one with `gizmo icons init <id>`.
 
 - `custom-icons/`: the default custom pack. One line icon for every app
   installed on the author's Mac (everything in `/Applications`, the Chrome
-  web apps in `~/Applications`) plus the core macOS apps, 81 in all. Same
+  web apps in `~/Applications`), the core macOS apps, and the apps
+  SketchyBar's `app_colors.sh` covered, 89 in all. Same
   grid and stroke as Tefer Line, so the two mix cleanly. `aliases.json` also
   carries the app-name variants from SketchyBar's `icon_map_fn.sh` (Code,
   iTerm2, Proton VPN...). Brand colors are in `colors.json`.

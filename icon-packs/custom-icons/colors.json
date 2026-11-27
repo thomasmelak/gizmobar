@@ -79,5 +79,13 @@
   "com.google.Chrome.app.Profile-1-hmjkmjkepdijhoojdojkdfohbdgmmhki": "#fbbc04",
   "com.google.Chrome.app.kajebgjangihfbkjfejcanhanjmmbcfd": "#4285f4",
   "com.google.Chrome.app.ilelhkccloibicpoflioommdepkioejm": "#00a0e3",
-  "com.google.Chrome.app.pohjkpcjnabhecjackhgnpkjndgelbhe": "#7c5cff"
+  "com.google.Chrome.app.pohjkpcjnabhecjackhgnpkjndgelbhe": "#7c5cff",
+  "com.apple.dt.Xcode": "#147efb",
+  "org.mozilla.firefox": "#ff7139",
+  "com.hnc.Discord": "#5865f2",
+  "com.microsoft.teams2": "#6264a7",
+  "com.microsoft.Outlook": "#0078d4",
+  "com.figma.Desktop": "#f24e1e",
+  "com.docker.docker": "#2496ed",
+  "com.postmanlabs.mac": "#ff6c37"
 }

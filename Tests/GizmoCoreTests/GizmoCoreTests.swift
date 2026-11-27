@@ -495,7 +495,7 @@ struct BundledIconPackTests {
         #expect(IconSettings().customPack == "custom-icons")
         let pack = try #require(IconPack.loadAll(from: [dir])["custom-icons"])
         #expect(pack.manifest.kind == .svg)
-        #expect(pack.svgBundleIDs.count == 81)
+        #expect(pack.svgBundleIDs.count == 89)
         #expect(Set(pack.colors.keys) == pack.svgBundleIDs)
         #expect(Set(pack.aliases.values).isSubset(of: pack.svgBundleIDs))
         let r = IconResolver(settings: IconSettings(), packs: IconPack.loadAll(from: [dir]))
