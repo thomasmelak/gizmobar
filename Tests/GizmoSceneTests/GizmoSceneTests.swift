@@ -295,3 +295,25 @@ import AppKit
     #expect((v.layer?.contentsScale ?? 0) > 0)
     p.close()
 }
+
+/// Every limb the dance animates moves in the loaded scene, not just one arm.
+@MainActor @Suite struct BotPose {
+    @Test func danceMovesBothArmsAndLegs() throws {
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().appendingPathComponent("examples/gizmobar/plugins/status-pet/models/gizmo-bot.glb")
+        let scene = try ModelScene.load(url, look: .toon)
+        func pose(_ t: Float) -> [String: simd_quatf] {
+            scene.pose(clip: "dance", time: t)
+            var out: [String: simd_quatf] = [:]
+            for name in ["ArmL", "ArmR", "LegL", "LegR"] {
+                if let e = scene.root.findEntity(named: name) { out[name] = e.orientation }
+            }
+            return out
+        }
+        let a = pose(0.225), b = pose(0.675)
+        for name in ["ArmL", "ArmR", "LegL", "LegR"] {
+            let qa = try #require(a[name]), qb = try #require(b[name])
+            #expect(abs(simd_dot(qa.vector, qb.vector)) < 0.99, "\(name) should move between beats")
+        }
+    }
+}
