@@ -2,7 +2,49 @@ import Foundation
 import GizmoCore
 import GizmoIPC
 
-let version = "0.1.0-dev"
+/// The app bundle this binary ships in (Gizmobar.app/Contents/MacOS/gizmo),
+/// following the symlink Homebrew or `make install` puts on the PATH.
+let appContents: URL? = {
+    guard let exe = Bundle.main.executableURL?.resolvingSymlinksInPath() else { return nil }
+    let contents = exe.deletingLastPathComponent().deletingLastPathComponent()
+    return contents.lastPathComponent == "Contents" ? contents : nil
+}()
+
+let version: String = {
+    guard let plist = appContents?.appendingPathComponent("Info.plist"),
+          let dict = NSDictionary(contentsOf: plist),
+          let v = dict["CFBundleShortVersionString"] as? String else { return "0.1.0-dev" }
+    return v
+}()
+
+/// Copies the bundled example config into the config dir, never overwriting.
+func initConfig() {
+    guard let source = appContents?.appendingPathComponent("Resources/examples/gizmobar", isDirectory: true),
+          FileManager.default.fileExists(atPath: source.path) else {
+        fail("gizmo: no bundled example config found; from a source checkout run `make config`")
+    }
+    let fm = FileManager.default
+    let dest = GizmoPaths.configDir
+    var copied = 0, kept = 0
+    do {
+        try fm.createDirectory(at: dest, withIntermediateDirectories: true)
+        for rel in try fm.subpathsOfDirectory(atPath: source.path).sorted() {
+            let item = source.appendingPathComponent(rel)
+            let target = dest.appendingPathComponent(rel)
+            var isDir: ObjCBool = false
+            _ = fm.fileExists(atPath: item.path, isDirectory: &isDir)
+            if isDir.boolValue {
+                try fm.createDirectory(at: target, withIntermediateDirectories: true)
+            } else if fm.fileExists(atPath: target.path) {
+                kept += 1
+            } else {
+                try fm.copyItem(at: item, to: target)
+                copied += 1
+            }
+        }
+    } catch { fail("gizmo: \(error)") }
+    print("\(dest.path): copied \(copied) files, kept \(kept) existing")
+}
 
 let usage = """
 gizmo: control Gizmobar
@@ -18,6 +60,7 @@ USAGE
   gizmo types [--sdk]             print the @gizmobar/sdk declarations (--sdk: sdk/src/providers.ts)
   gizmo debug                     plugin render times, budget overruns and provider update counts
   gizmo plugins reload|log|resume <id>
+  gizmo config init               copy the example config into ~/.config/gizmobar (never overwrites)
   gizmo version
 """
 
@@ -59,6 +102,8 @@ case "help", "-h", "--help":
     print(usage)
 case "version", "--version":
     print(version)
+case "config" where args.first == "init":
+    initConfig()
 case "ping":
     print(send(.init(command: "ping")).message ?? "")
 case "trigger":

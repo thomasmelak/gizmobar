@@ -141,13 +141,12 @@
 
 <section id="start">
   <div class="wrap">
-    <h2>Up and running in five commands</h2>
-    <p class="sub">You need macOS 14 or newer and Swift 6. The Xcode Command Line Tools are enough.</p>
-<pre><span class="c"># build, install to /Applications, link `gizmo` into ~/.local/bin</span>
-git clone https://github.com/thomasmelak/gizmobar && <span class="f">cd</span> gizmobar
-make install
+    <h2>Up and running in three commands</h2>
+    <p class="sub">You need macOS 14 or newer. Prefer to build it yourself? The guide covers that too.</p>
+<pre><span class="c"># install Gizmobar.app and the `gizmo` CLI</span>
+brew install --cask thomasmelak/tap/gizmobar
 <span class="c"># copy the example config into ~/.config/gizmobar, then start the bar</span>
-make config
+gizmo config init
 open -a Gizmobar</pre>
     <div class="buttons" style="justify-content:flex-start">
       <a class="btn primary" href="getting-started.html">Full getting started guide</a>

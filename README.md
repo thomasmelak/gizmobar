@@ -14,7 +14,18 @@ once per frame.
 
 Website and getting started guide: <https://thomasmelak.github.io/gizmobar/>
 
-## Build and run
+## Install
+
+```sh
+brew install --cask thomasmelak/tap/gizmobar
+gizmo config init    # copy the example config into ~/.config/gizmobar
+open -a Gizmobar
+```
+
+Release builds are ad-hoc signed, not notarized; the cask clears the
+download quarantine so macOS will open the app.
+
+## Build from source
 
 Requires macOS 14+ (Liquid Glass on macOS 26) and Swift 6. The Command Line
 Tools are enough; use `make test` rather than plain `swift test` there, since
@@ -44,6 +55,7 @@ gizmo icons missing                 # apps the icon packs don't cover, most used
 gizmo icons init my-icons           # start a custom icon pack
 gizmo new my-plugin                 # scaffold a TypeScript plugin
 gizmo debug                         # plugin render times and budgets
+gizmo config init                   # copy the example config (never overwrites)
 ```
 
 ## Plugins

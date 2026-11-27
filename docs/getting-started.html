@@ -38,28 +38,19 @@
 
   <article>
     <h1>Getting started</h1>
-    <p>This takes about ten minutes, most of it the first build.</p>
+    <p>This takes about five minutes with Homebrew.</p>
 
     <h2 id="install">Install</h2>
-    <p>You need <strong>macOS 14 or newer</strong> and <strong>Swift 6</strong>. The Xcode Command Line Tools are enough (<code>xcode-select --install</code>); full Xcode works too.</p>
+    <p>You need <strong>macOS 14 or newer</strong>. Homebrew is the quickest way in; building from source is below.</p>
     <ol class="steps">
       <li>
-        <h3>Build and install</h3>
-<pre>git clone https://github.com/thomasmelak/gizmobar
-<span class="f">cd</span> gizmobar
-make test      <span class="c"># optional: run the unit tests</span>
-make install   <span class="c"># Gizmobar.app into /Applications, `gizmo` into ~/.local/bin</span></pre>
-        <p>Make sure <code>~/.local/bin</code> is on your <code>PATH</code>.</p>
-      </li>
-      <li>
-        <h3>Sign it (recommended)</h3>
-        <p>macOS ties privacy grants (automation, audio capture) to the app's signature. Sign with a stable identity so they survive rebuilds:</p>
-<pre>SIGN_IDENTITY=<span class="s">"Apple Development: Your Name (TEAMID)"</span> make install</pre>
-        <p>List your identities with <code>security find-identity -v -p codesigning</code>.</p>
+        <h3>Install with Homebrew</h3>
+<pre>brew install --cask thomasmelak/tap/gizmobar</pre>
+        <p>This puts Gizmobar.app in <code>/Applications</code> and <code>gizmo</code> on your <code>PATH</code>. Update with <code>brew upgrade --cask gizmobar</code>.</p>
       </li>
       <li>
         <h3>Copy the example config and start</h3>
-<pre>make config          <span class="c"># copies examples/gizmobar into ~/.config/gizmobar (never overwrites)</span>
+<pre>gizmo config init    <span class="c"># copies the example config into ~/.config/gizmobar (never overwrites)</span>
 open -a Gizmobar
 gizmo ping           <span class="c"># → pong</span></pre>
       </li>
@@ -68,6 +59,18 @@ gizmo ping           <span class="c"># → pong</span></pre>
         <p>Set <code>launch_at_login = true</code> in config.toml, or start it from AeroSpace (see below).</p>
       </li>
     </ol>
+    <p class="note">Release builds are not notarized yet. The cask clears the download quarantine so macOS opens the app; if you downloaded the zip from GitHub yourself, run <code>xattr -dr com.apple.quarantine /Applications/Gizmobar.app</code> once.</p>
+
+    <h3 id="from-source">Build from source</h3>
+    <p>You need <strong>Swift 6</strong>. The Xcode Command Line Tools are enough (<code>xcode-select --install</code>); full Xcode works too.</p>
+<pre>git clone https://github.com/thomasmelak/gizmobar
+<span class="f">cd</span> gizmobar
+make test      <span class="c"># optional: run the unit tests</span>
+make install   <span class="c"># Gizmobar.app into /Applications, `gizmo` into ~/.local/bin</span>
+make config    <span class="c"># same as `gizmo config init`</span></pre>
+    <p>Make sure <code>~/.local/bin</code> is on your <code>PATH</code>. macOS ties privacy grants (automation, audio capture) to the app's signature, so sign with a stable identity to keep them across rebuilds:</p>
+<pre>SIGN_IDENTITY=<span class="s">"Apple Development: Your Name (TEAMID)"</span> make install</pre>
+    <p>List your identities with <code>security find-identity -v -p codesigning</code>.</p>
     <p class="note">Coming from SketchyBar? Stop it first so the two bars don't overlap: <code>brew services stop sketchybar</code>, and remove its lines from <code>aerospace.toml</code>.</p>
 
     <h2 id="config">Configure</h2>
@@ -145,6 +148,7 @@ gizmo new my-plugin            <span class="c"># ~/.config/gizmobar/plugins/my-p
       <tr><td><code>gizmo icons missing</code></td><td>Apps the icon packs don't cover, most used first</td></tr>
       <tr><td><code>gizmo icons init &lt;id&gt;</code></td><td>Start a custom icon pack</td></tr>
       <tr><td><code>gizmo new &lt;id&gt;</code></td><td>Scaffold a TypeScript plugin</td></tr>
+      <tr><td><code>gizmo config init</code></td><td>Copy the example config into ~/.config/gizmobar (never overwrites)</td></tr>
       <tr><td><code>gizmo types</code></td><td>Print the <code>@gizmobar/sdk</code> declarations</td></tr>
       <tr><td><code>gizmo debug</code></td><td>Plugin render times, budget overruns and provider update counts</td></tr>
       <tr><td><code>gizmo plugins reload|log|resume &lt;id&gt;</code></td><td>Reload a plugin, show its console, resume a paused one</td></tr>
