@@ -20,6 +20,7 @@
     <div class="links">
       <a href="#features" class="hide-sm">Features</a>
       <a href="#plugins" class="hide-sm">Plugins</a>
+      <a href="#install">Install</a>
       <a href="getting-started.html">Get started</a>
       <a href="https://github.com/thomasmelak/gizmobar">GitHub</a>
     </div>
@@ -32,7 +33,8 @@
     <h1>Gizmobar</h1>
     <p class="lede">A fast, native macOS status bar written in Swift. AeroSpace workspaces, rich now playing, 3D models and TypeScript plugins, without a single shell process on the render path.</p>
     <div class="buttons">
-      <a class="btn primary" href="getting-started.html">Get started</a>
+      <a class="btn primary" href="https://github.com/thomasmelak/gizmobar/releases/latest/download/Gizmobar.dmg">Download for macOS</a>
+      <a class="btn" href="#install">Install guide</a>
       <a class="btn" href="https://github.com/thomasmelak/gizmobar">View on GitHub</a>
     </div>
     <p class="status">In development · macOS 14+ · Liquid Glass on macOS 26</p>
@@ -139,16 +141,73 @@
   </div>
 </section>
 
-<section id="start">
+<section id="install">
   <div class="wrap">
-    <h2>Up and running in five commands</h2>
-    <p class="sub">You need macOS 14 or newer and Swift 6. The Xcode Command Line Tools are enough.</p>
-<pre><span class="c"># build, install to /Applications, link `gizmo` into ~/.local/bin</span>
-git clone https://github.com/thomasmelak/gizmobar && <span class="f">cd</span> gizmobar
-make install
-<span class="c"># copy the example config into ~/.config/gizmobar, then start the bar</span>
-make config
-open -a Gizmobar</pre>
+    <h2>Install</h2>
+    <p class="sub">macOS 14 or newer. Pick whichever way you like; every option installs the same app.</p>
+    <div class="tabs" role="tablist" aria-label="Install method">
+      <button class="tab" role="tab" aria-selected="true" aria-controls="p-dmg" id="t-dmg">Download (DMG)</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="p-brew" id="t-brew" tabindex="-1">Homebrew</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="p-curl" id="t-curl" tabindex="-1">One-line installer</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="p-src" id="t-src" tabindex="-1">From source (developers)</button>
+    </div>
+
+    <div class="panel active" role="tabpanel" id="p-dmg" aria-labelledby="t-dmg">
+      <ol class="steps">
+        <li><p>Download <a href="https://github.com/thomasmelak/gizmobar/releases/latest/download/Gizmobar.dmg"><strong>Gizmobar.dmg</strong></a> from the latest release.</p></li>
+        <li><p>Open the DMG and drag <strong>Gizmobar</strong> onto the <strong>Applications</strong> folder.</p></li>
+        <li><p>Open Gizmobar from Applications. The first time, macOS will block it because the app isn't notarized; see <a href="#first-open">Opening it the first time</a> below.</p></li>
+        <li>
+          <p>The first launch links <code>gizmo</code> into <code>~/.local/bin</code>. Copy the example config into <code>~/.config/gizmobar</code> (it never overwrites):</p>
+          <div class="code"><pre><span class="p">$ </span>~/.local/bin/gizmo config init</pre><button class="copy">Copy</button></div>
+        </li>
+      </ol>
+    </div>
+
+    <div class="panel" role="tabpanel" id="p-brew" aria-labelledby="t-brew">
+      <ol class="steps">
+        <li>
+          <p>Add the tap and install the cask:</p>
+          <div class="code"><pre><span class="p">$ </span>brew tap thomasmelak/gizmobar https://github.com/thomasmelak/gizmobar
+<span class="p">$ </span>brew install --cask gizmobar</pre><button class="copy">Copy</button></div>
+        </li>
+        <li><p>Homebrew clears the quarantine flag, puts <code>gizmo</code> on your <code>PATH</code> and starts the bar, so there's no security prompt.</p></li>
+        <li>
+          <p>Copy the example config, and update later with <code>brew upgrade</code>:</p>
+          <div class="code"><pre><span class="p">$ </span>gizmo config init
+<span class="p">$ </span>brew upgrade --cask --greedy gizmobar</pre><button class="copy">Copy</button></div>
+        </li>
+      </ol>
+    </div>
+
+    <div class="panel" role="tabpanel" id="p-curl" aria-labelledby="t-curl">
+      <ol class="steps">
+        <li>
+          <p>Paste this into Terminal:</p>
+          <div class="code"><pre><span class="p">$ </span>curl -fsSL https://raw.githubusercontent.com/thomasmelak/gizmobar/main/install.sh | bash</pre><button class="copy">Copy</button></div>
+        </li>
+        <li><p>The script downloads the latest release into <code>/Applications</code>, clears the quarantine flag, links <code>gizmo</code> into <code>~/.local/bin</code>, copies the example config and starts the bar. Nothing is built on your Mac and you don't need Xcode.</p></li>
+      </ol>
+    </div>
+
+    <div class="panel" role="tabpanel" id="p-src" aria-labelledby="t-src">
+      <ol class="steps">
+        <li><p>Only needed if you want to work on Gizmobar itself. You need the Xcode Command Line Tools with Swift 6 (<code>xcode-select --install</code>).</p></li>
+        <li>
+          <p>Clone, build and install:</p>
+          <div class="code"><pre><span class="p">$ </span>git clone https://github.com/thomasmelak/gizmobar.git
+<span class="p">$ </span>cd gizmobar
+<span class="p">$ </span>make install   <span class="c"># Gizmobar.app into /Applications, gizmo into ~/.local/bin</span>
+<span class="p">$ </span>make config    <span class="c"># copy the example config</span>
+<span class="p">$ </span>open -a Gizmobar</pre><button class="copy">Copy</button></div>
+        </li>
+      </ol>
+    </div>
+    <div class="note" id="first-open">
+      <p><strong>Opening it the first time.</strong> Release builds are signed in CI but not notarized by Apple, so the first launch of a downloaded copy shows a "cannot be opened" or "Apple could not verify" message. Open <strong>System Settings › Privacy &amp; Security</strong>, scroll to the message about Gizmobar and click <strong>Open Anyway</strong>, or remove the quarantine flag in Terminal:</p>
+      <div class="code"><pre><span class="p">$ </span>xattr -dr com.apple.quarantine /Applications/Gizmobar.app</pre><button class="copy">Copy</button></div>
+      <p>Homebrew and the one-line installer do this for you.</p>
+    </div>
     <div class="buttons" style="justify-content:flex-start">
       <a class="btn primary" href="getting-started.html">Full getting started guide</a>
     </div>
@@ -160,11 +219,13 @@ open -a Gizmobar</pre>
   <div class="wrap">
     <span>Gizmobar · built in Swift for macOS</span>
     <div class="right">
+      <a href="#install">Install</a>
       <a href="getting-started.html">Get started</a>
       <a href="https://github.com/thomasmelak/gizmobar/blob/main/docs/roadmap.md">Roadmap</a>
       <a href="https://github.com/thomasmelak/gizmobar">GitHub</a>
     </div>
   </div>
 </footer>
+<script src="assets/install.js"></script>
 </body>
 </html>

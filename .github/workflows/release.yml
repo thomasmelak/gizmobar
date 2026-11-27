@@ -1,0 +1,80 @@
+name: Release
+
+# Publishes Gizmobar.zip (used by Homebrew and install.sh) and Gizmobar.dmg (drag to install)
+# to a GitHub release. Trigger it by pushing a tag like v0.1.0, or run it by hand from the
+# Actions tab with a tag name.
+#
+# Signing happens here, once, never on users' Macs. Optional repository secrets:
+#   SIGNING_CERT_P12, SIGNING_CERT_PASSWORD   base64 .p12 of a Developer ID Application (or
+#                                            self-signed) certificate; without them the app
+#                                            is ad-hoc signed
+#   NOTARY_APPLE_ID, NOTARY_TEAM_ID, NOTARY_PASSWORD   notarize and staple (Developer ID only)
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to create, for example v0.1.0"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # The macOS 26 SDK is needed for Liquid Glass (NSGlassEffectView).
+    runs-on: macos-26
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test
+        run: swift test
+      - name: Import signing certificate
+        id: sign
+        env:
+          CERT_P12: ${{ secrets.SIGNING_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
+        if: env.CERT_P12 != ''
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          echo "$CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -P "$CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          # The certificate's SHA-1; works for untrusted (self-signed) certificates too.
+          IDENTITY="$(security find-identity -p codesigning "$KEYCHAIN" | awk '/^ *1\)/ {print $2; exit}')"
+          echo "Signing as: $IDENTITY"
+          echo "identity=$IDENTITY" >> "$GITHUB_OUTPUT"
+      - name: Build app (universal)
+        env:
+          SIGN_IDENTITY: ${{ steps.sign.outputs.identity }}
+        run: UNIVERSAL=1 VERSION="$TAG" BUILD_NUMBER="$GITHUB_RUN_NUMBER" scripts/bundle.sh
+      - name: Notarize
+        env:
+          APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
+          APP_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+        if: steps.sign.outputs.identity != '' && env.APPLE_ID != ''
+        run: |
+          ditto -c -k --keepParent build/Gizmobar.app "$RUNNER_TEMP/notarize.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" --wait \
+            --apple-id "$APPLE_ID" --team-id "$TEAM_ID" --password "$APP_PASSWORD"
+          xcrun stapler staple build/Gizmobar.app
+      - name: Build zip and DMG
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent build/Gizmobar.app build/Gizmobar.zip
+          scripts/build-dmg.sh
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$TAG" build/Gizmobar.zip build/Gizmobar.dmg \
+            --target "$GITHUB_SHA" \
+            --title "Gizmobar $TAG" \
+            --generate-notes

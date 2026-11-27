@@ -14,7 +14,53 @@ once per frame.
 
 Website and getting started guide: <https://thomasmelak.github.io/gizmobar/>
 
-## Build and run
+## Install
+
+Requires macOS 14 or newer (Liquid Glass on macOS 26).
+
+**Download**
+
+Grab [Gizmobar.dmg](https://github.com/thomasmelak/gizmobar/releases/latest/download/Gizmobar.dmg),
+open it and drag **Gizmobar** onto **Applications**. The app isn't notarized by Apple, so the
+first time you open it macOS will refuse; go to System Settings > Privacy & Security and click
+**Open Anyway** (or run `xattr -dr com.apple.quarantine /Applications/Gizmobar.app`).
+
+**Homebrew**
+
+```sh
+brew tap thomasmelak/gizmobar https://github.com/thomasmelak/gizmobar
+brew install --cask gizmobar
+```
+
+Homebrew clears the quarantine flag, links `gizmo` onto your PATH and starts the bar. Update
+with `brew upgrade --cask --greedy gizmobar`.
+
+**One-line installer**
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/thomasmelak/gizmobar/main/install.sh | bash
+```
+
+The installer downloads the latest release into `/Applications`, links `gizmo` into
+`~/.local/bin`, copies the example config and starts the bar. Nothing is built locally, so no
+Xcode is needed.
+
+**From source** (developers only): see [Build from source](#build-from-source) below.
+
+After a DMG or Homebrew install, `gizmo config init` copies the example config into
+`~/.config/gizmobar` (it never overwrites). A DMG install links `gizmo` into `~/.local/bin`
+the first time the app starts.
+
+## Uninstall
+
+Any of these removes the app, the `gizmo` command and the bar's state. Your config in
+`~/.config/gizmobar` is kept.
+
+- Homebrew: `brew uninstall --cask --zap gizmobar`
+- Script: `curl -fsSL https://raw.githubusercontent.com/thomasmelak/gizmobar/main/uninstall.sh | bash`
+  (or `make uninstall` in a clone)
+
+## Build from source
 
 Requires macOS 14+ (Liquid Glass on macOS 26) and Swift 6. The Command Line
 Tools are enough; use `make test` rather than plain `swift test` there, since
@@ -25,9 +71,11 @@ make test          # unit tests
 make config        # copy examples/gizmobar into ~/.config/gizmobar
 make run           # build Gizmobar.app and launch it
 make install       # install to /Applications and link `gizmo` into ~/.local/bin
+make dmg           # build/Gizmobar.dmg
 ```
 
-Sign with a stable identity so privacy grants survive rebuilds:
+Local builds only: sign with a stable identity so privacy grants survive rebuilds
+(release builds are signed in CI; users never sign anything):
 
 ```sh
 SIGN_IDENTITY="Apple Development: Your Name (TEAMID)" make app
@@ -44,6 +92,7 @@ gizmo icons missing                 # apps the icon packs don't cover, most used
 gizmo icons init my-icons           # start a custom icon pack
 gizmo new my-plugin                 # scaffold a TypeScript plugin
 gizmo debug                         # plugin render times and budgets
+gizmo config init                   # copy the example config (never overwrites)
 ```
 
 ## Plugins
@@ -128,3 +177,14 @@ examples/gizmobar/ example ~/.config/gizmobar
 ```
 
 See [docs/architecture.md](docs/architecture.md) for how the pieces fit.
+
+## Releasing
+
+Push a tag like `v0.1.0`, or run the **Release** workflow from the Actions tab with a tag name.
+It runs the tests, builds a universal app, signs it once in CI, and publishes `Gizmobar.zip`
+and `Gizmobar.dmg` to a GitHub release. The Homebrew cask, the one-line installer and the download
+link above always point at the latest release, so nothing else needs updating.
+
+Releases are signed with a self-signed certificate stored in the `SIGNING_CERT_P12` and
+`SIGNING_CERT_PASSWORD` secrets, so privacy grants survive updates. Create it once with
+`scripts/make-signing-cert.sh`. Without the secrets the app is ad-hoc signed.
