@@ -14,10 +14,11 @@ USAGE
   gizmo state                     print what the bar currently shows
   gizmo icons missing             apps the icon packs don't cover, most used first
   gizmo icons init <id>           start a custom icon pack in ~/.config/gizmobar/icon-packs
+  gizmo new <id>                  scaffold a TypeScript plugin in ~/.config/gizmobar/plugins
+  gizmo types [--sdk]             print the @gizmobar/sdk declarations (--sdk: sdk/src/providers.ts)
+  gizmo debug                     plugin render times, budget overruns and provider update counts
+  gizmo plugins reload|log|resume <id>
   gizmo version
-
-Plugin scaffolding (gizmo new) and the debug overlay (gizmo debug)
-arrive with the plugin SDK.
 """
 
 func fail(_ message: String) -> Never {
@@ -87,8 +88,53 @@ case "reload", "state", "icons":
     let r = send(.init(command: command, args: args))
     if !r.ok { fail(r.message ?? "failed") }
     if let data = r.data { printJSON(data) } else if let m = r.message { print(m) }
-case "new", "debug":
-    fail("gizmo \(command): not available yet (plugin SDK, Phase 4)")
+case "new":
+    guard args.count == 1, PluginScaffold.isValid(id: args[0]) else {
+        fail("usage: gizmo new <id>   (lowercase letters, digits and dashes)")
+    }
+    let dir = GizmoPaths.pluginsDir.appendingPathComponent(args[0], isDirectory: true)
+    if FileManager.default.fileExists(atPath: dir.path) { fail("gizmo: \(dir.path) already exists") }
+    do {
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        for (name, content) in PluginScaffold.files(id: args[0]) {
+            try content.write(to: dir.appendingPathComponent(name), atomically: true, encoding: .utf8)
+        }
+    } catch { fail("gizmo: \(error)") }
+    print("""
+    created \(dir.path)
+
+    1. Show it: add "\(args[0])" to a [layout] list in ~/.config/gizmobar/config.toml
+    2. Build:   brew install esbuild   (the bar then rebuilds on every save)
+                or: cd \(dir.path) && npm install && npm run build
+    3. Edit index.ts; types are in gizmobar.d.ts
+    """)
+case "types":
+    print(args.first == "--sdk" ? PluginProviders.typescriptModule : SDKTypes.declaration, terminator: "")
+case "debug":
+    let r = send(.init(command: "plugins"))
+    if !r.ok { fail(r.message ?? "failed") }
+    guard let data = r.data else { exit(0) }
+    let list = data["plugins"]?.array ?? []
+    if list.isEmpty { print("no plugins loaded (\(GizmoPaths.pluginsDir.path))") }
+    func n(_ v: JSONValue?) -> String { if case .number(let d)? = v { return d == d.rounded() ? String(Int(d)) : String(d) }; return "-" }
+    print("PLUGIN".padding(toLength: 20, withPad: " ", startingAt: 0) + "RENDERS  AVG ms  MAX ms  OVER  STATE")
+    for p in list {
+        let paused: Bool = { if case .bool(let b)? = p["paused"] { return b }; return false }()
+        let state = p["error"]?.string.map { "error: \($0.prefix(60))" } ?? (paused ? "paused (gizmo plugins resume \(p["id"]?.string ?? ""))" : "ok")
+        print((p["id"]?.string ?? "?").padding(toLength: 20, withPad: " ", startingAt: 0)
+            + n(p["renders"]).padding(toLength: 9, withPad: " ", startingAt: 0)
+            + n(p["avgMs"]).padding(toLength: 8, withPad: " ", startingAt: 0)
+            + n(p["maxMs"]).padding(toLength: 8, withPad: " ", startingAt: 0)
+            + n(p["overruns"]).padding(toLength: 6, withPad: " ", startingAt: 0) + state)
+    }
+    if case .object(let rates)? = data["providerUpdates"], !rates.isEmpty {
+        print("\nPROVIDER UPDATES SINCE LAUNCH")
+        for (k, v) in rates.sorted(by: { $0.key < $1.key }) { print("  \(k.padding(toLength: 12, withPad: " ", startingAt: 0)) \(n(v))") }
+    }
+case "plugins":
+    let r = send(.init(command: "plugins", args: args.isEmpty ? ["log"] : args))
+    if !r.ok { fail(r.message ?? "failed") }
+    if let m = r.message { print(m) }
 default:
     fail("gizmo: unknown command '\(command)'\n\n\(usage)")
 }

@@ -1,0 +1,7 @@
+{
+  "id": "theme-picker",
+  "name": "Theme Picker",
+  "version": "0.1.0",
+  "entry": "dist/index.js",
+  "permissions": ["requests"]
+}

@@ -40,7 +40,14 @@ gizmo reload                        # re-read config, theme and icon packs
 gizmo state
 gizmo icons missing                 # apps the icon packs don't cover, most used first
 gizmo icons init my-icons           # start a custom icon pack
+gizmo new my-plugin                 # scaffold a TypeScript plugin
+gizmo debug                         # plugin render times and budgets
 ```
+
+## Plugins
+
+Widgets can be written in TypeScript. `gizmo new my-plugin`, add it to
+your layout, save, and it's on the bar. See [docs/plugins.md](docs/plugins.md).
 
 ## AeroSpace
 
@@ -78,7 +85,7 @@ config.toml          # layout, bar, icons, aerospace (see examples/gizmobar)
 themes/<name>.toml   # design tokens; missing keys fall back to Gizmo. 12 themes are
                      # bundled (Gizmo, Nord, Dracula, Catppuccin...); yours win by name
 icon-packs/<id>/     # extra or replacement icon packs
-plugins/<id>/        # TypeScript plugins (runtime arrives in Phase 4)
+plugins/<id>/        # TypeScript plugins, see docs/plugins.md
 ```
 
 App icons resolve per bundle ID: per-app override, then `style = "system"`
@@ -95,7 +102,8 @@ default). Start your own with `gizmo icons init my-icons`, drop
 Sources/
   GizmoCore/       events, bus, config, theme, icon resolver, plugin manifest
   GizmoIPC/        Unix socket protocol for the CLI
-  GizmoProviders/  AeroSpace, apps, clock, displays
+  GizmoProviders/  system, network, power, audio, displays, media, AeroSpace
+  GizmoPlugins/    JavaScriptCore plugin runtime
   GizmoScene/      3D scene contract (glTF/GLB/USDZ, Phase 5)
   GizmoUI/         panels per display, widgets, icon rendering
   Gizmobar/        the app
