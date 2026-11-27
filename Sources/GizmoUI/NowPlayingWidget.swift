@@ -4,40 +4,60 @@ import GizmoCore
 
 /// Previous, play/pause and next, then the track over a dimmed spectrum, in
 /// one pill (hidden when nothing is loaded). Click the track for the Now
-/// Playing popover; right-click play/pause skips to the next track.
+/// Playing popover; right-click play/pause skips to the next track. Apps
+/// that make sound without being players (calls, videos, games) show their
+/// icon and name over their own spectrum, with no controls.
 struct NowPlayingWidget: View {
     @Environment(BarStore.self) private var store
     @State private var showing = false
     @State private var hovering = false
 
     var body: some View {
-        if let source = store.snapshot.nowPlaying.current, let track = source.track {
-            let t = store.theme
-            let tint = track.artColor ?? t.accent
-            Pill(focused: showing, hovered: hovering) {
-                HStack(spacing: 2) {
-                    MediaButton(symbol: "backward.fill", size: 10) { store.request(BarRequest.mediaPrevious) }
-                    MediaButton(symbol: source.isPlaying ? "pause.fill" : "play.fill", size: 13,
-                                onRightClick: { store.request(BarRequest.mediaNext) }) {
-                        store.request(BarRequest.mediaToggle)
+        let t = store.theme
+        switch store.shownSource {
+        case .media(let source)?:
+            if let track = source.track {
+                let tint = track.artColor ?? t.accent
+                Pill(focused: showing, hovered: hovering) {
+                    HStack(spacing: 2) {
+                        MediaButton(symbol: "backward.fill", size: 10) { store.request(BarRequest.mediaPrevious) }
+                        MediaButton(symbol: source.isPlaying ? "pause.fill" : "play.fill", size: 13,
+                                    onRightClick: { store.request(BarRequest.mediaNext) }) {
+                            store.request(BarRequest.mediaToggle)
+                        }
+                        MediaButton(symbol: "forward.fill", size: 10) { store.request(BarRequest.mediaNext) }
+                        label(track.line, key: track.key, source: source.id, playing: source.isPlaying, tint: tint)
+                            .padding(.leading, 6)
                     }
-                    MediaButton(symbol: "forward.fill", size: 10) { store.request(BarRequest.mediaNext) }
-                    ZStack {
-                        SpectrumBars(playing: source.isPlaying, color: tint, opacity: 0.32)
-                        Marquee(text: track.line, scrolling: hovering)
-                            .font(.custom(t.font, size: t.fontSize))
-                            .foregroundStyle(Color(hex: t.label))
-                            .id(track.key)
-                            .transition(.opacity)
-                    }
-                    .frame(width: store.config.media.width)
-                    .padding(.leading, 6)
-                    .barAction(onHover: { hovering = $0 }) { showing.toggle() }
+                    .animation(.easeInOut(duration: 0.35), value: track.key)
                 }
-                .animation(.easeInOut(duration: 0.35), value: track.key)
+                .barPopover(id: "now_playing", isPresented: $showing) { NowPlayingPopover() }
+            }
+        case .audio(let source)?:
+            Pill(focused: showing, hovered: hovering) {
+                HStack(spacing: 6) {
+                    AppIconView(app: AppRef(bundleID: source.id, name: source.name), size: 16)
+                    label(source.name, key: source.id, source: source.id, playing: source.isActive, tint: t.accent)
+                }
             }
             .barPopover(id: "now_playing", isPresented: $showing) { NowPlayingPopover() }
+        case nil:
+            EmptyView()
         }
+    }
+
+    private func label(_ text: String, key: String, source: String, playing: Bool, tint: String) -> some View {
+        let t = store.theme
+        return ZStack {
+            SpectrumBars(source: source, playing: playing, color: tint, opacity: 0.32)
+            Marquee(text: text, scrolling: hovering)
+                .font(.custom(t.font, size: t.fontSize))
+                .foregroundStyle(Color(hex: t.label))
+                .id(key)
+                .transition(.opacity)
+        }
+        .frame(width: store.config.media.width)
+        .barAction(onHover: { hovering = $0 }) { showing.toggle() }
     }
 }
 
@@ -109,6 +129,8 @@ struct Marquee: View {
 /// Spectrum bars: live levels from the audio tap, or eased random levels
 /// (like visualizer.sh) when there's no tap. Draws nothing while paused.
 struct SpectrumBars: View {
+    /// The audio source (app bundle ID) whose levels to draw.
+    let source: String
     let playing: Bool
     let color: String
     var opacity: Double = 1
@@ -116,7 +138,7 @@ struct SpectrumBars: View {
     @State private var fake: [Float] = []
 
     var body: some View {
-        let live = store.snapshot.spectrum
+        let live = store.snapshot.spectra[source] ?? []
         let count = store.config.media.bands
         Group {
             if !playing {
@@ -174,50 +196,131 @@ struct RightClickArea: NSViewRepresentable {
 
 struct NowPlayingPopover: View {
     @Environment(BarStore.self) private var store
-    @State private var sourcesOpen = false
 
     var body: some View {
         let t = store.theme
-        let np = store.snapshot.nowPlaying
-        if let source = np.current, let track = source.track {
-            let tint = track.artColor ?? t.accent
+        if let shown = store.shownSource {
             VStack(alignment: .leading, spacing: 10) {
                 PopupHeader(icon: "music.note", title: "Now Playing", action: {
                     PopoverController.shared.close()
-                    if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: source.id) {
+                    if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: shown.id) {
                         NSWorkspace.shared.openApplication(at: url, configuration: .init())
                     }
                 })
-                if np.sources.count > 1 {
-                    PopupRow(icon: sourcesOpen ? "chevron.up" : "chevron.down", text: source.name, color: t.label) {
-                        sourcesOpen.toggle()
-                    }
-                    if sourcesOpen {
-                        ForEach(np.sources) { s in
-                            PopupRow(icon: s.isPlaying ? "play.fill" : "pause.fill", text: s.track?.line ?? s.name,
-                                     color: s.id == source.id ? t.accent : nil, iconColor: s.id == source.id ? t.accent : t.label,
-                                     action: { store.request(BarRequest.mediaSelect(s.id)); sourcesOpen = false })
+                SourceList(shown: shown.id)
+                switch shown {
+                case .media(let source):
+                    if let track = source.track {
+                        let tint = track.artColor ?? t.accent
+                        ArtView(path: track.artworkPath, key: track.key, tint: tint) {
+                            store.request(BarRequest.mediaToggle)
                         }
+                        .frame(maxWidth: .infinity)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(track.title).font(.custom(t.font, size: t.fontSize + 2).bold()).lineLimit(2)
+                            if !track.artist.isEmpty { Text(track.artist).foregroundStyle(Color(hex: tint)).lineLimit(1) }
+                            if !track.album.isEmpty { Text(track.album).foregroundStyle(Color(hex: t.label).opacity(0.7)).lineLimit(1) }
+                        }
+                        .id(track.key)
+                        .transition(.opacity)
+                        Scrubber(source: source, tint: tint)
+                        Controls(source: source, tint: tint)
+                        SpectrumBars(source: source.id, playing: source.isPlaying, color: tint).frame(height: 28)
                     }
+                case .audio(let source):
+                    VStack(spacing: 10) {
+                        AppIconView(app: AppRef(bundleID: source.id, name: source.name), size: 96)
+                        Text(source.name).font(.custom(t.font, size: t.fontSize + 2).bold()).lineLimit(1)
+                        Text(source.isActive ? "Playing sound" : "Quiet")
+                            .foregroundStyle(Color(hex: t.label).opacity(0.7))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    SpectrumBars(source: source.id, playing: source.isActive, color: t.accent).frame(height: 40)
                 }
-                ArtView(path: track.artworkPath, key: track.key, tint: tint) {
-                    store.request(BarRequest.mediaToggle)
-                }
-                .frame(maxWidth: .infinity)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(track.title).font(.custom(t.font, size: t.fontSize + 2).bold()).lineLimit(2)
-                    if !track.artist.isEmpty { Text(track.artist).foregroundStyle(Color(hex: tint)).lineLimit(1) }
-                    if !track.album.isEmpty { Text(track.album).foregroundStyle(Color(hex: t.label).opacity(0.7)).lineLimit(1) }
-                }
-                .id(track.key)
-                .transition(.opacity)
-                Scrubber(source: source, tint: tint)
-                Controls(source: source, tint: tint)
-                SpectrumBars(playing: source.isPlaying, color: tint).frame(height: 28)
             }
             .frame(width: 260)
-            .animation(.easeInOut(duration: 0.35), value: track.key)
+            .animation(.easeInOut(duration: 0.35), value: shown.id)
         }
+    }
+}
+
+/// Every player with a track and every app heard in the last 10 minutes,
+/// playing ones first, each with a small live spectrum. Click to show it.
+private struct SourceList: View {
+    let shown: String
+    @Environment(BarStore.self) private var store
+
+    struct Row: Identifiable {
+        let id: String
+        let name: String
+        let detail: String?
+        let playing: Bool
+        let isMedia: Bool
+    }
+
+    var rows: [Row] {
+        let np = store.snapshot.nowPlaying
+        let media = np.sources.filter { $0.track != nil }
+        let mediaIDs = Set(media.map(\.id))
+        let audio = store.snapshot.audioSources
+        let active = Set(audio.filter(\.isActive).map(\.id))
+        var out = media.map { m in
+            Row(id: m.id, name: m.name, detail: m.track?.line, playing: m.isPlaying || active.contains(m.id), isMedia: true)
+        }
+        out += audio.filter { !mediaIDs.contains($0.id) }.map { a in
+            Row(id: a.id, name: a.name, detail: a.isActive ? nil : Self.ago(a.lastHeard), playing: a.isActive, isMedia: false)
+        }
+        return out.sorted { $0.playing && !$1.playing }
+    }
+
+    var body: some View {
+        let rows = self.rows
+        if rows.count > 1 {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(rows) { r in
+                    SourceRow(row: r, selected: r.id == shown) {
+                        store.pickedSource = r.id
+                        if r.isMedia { store.request(BarRequest.mediaSelect(r.id)) }
+                    }
+                }
+            }
+            PopupDivider()
+        }
+    }
+
+    static func ago(_ d: Date) -> String {
+        let m = Int(Date().timeIntervalSince(d) / 60)
+        return m < 1 ? "just now" : "\(m) min ago"
+    }
+}
+
+private struct SourceRow: View {
+    let row: SourceList.Row
+    let selected: Bool
+    let action: @MainActor () -> Void
+    @Environment(BarStore.self) private var store
+    @State private var hovering = false
+
+    var body: some View {
+        let t = store.theme
+        HStack(spacing: 8) {
+            AppIconView(app: AppRef(bundleID: row.id, name: row.name), size: 18)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(row.name)
+                    .foregroundStyle(Color(hex: selected || hovering ? t.accent : t.label))
+                if let d = row.detail {
+                    Text(d).font(.system(size: 10)).foregroundStyle(Color(hex: t.label).opacity(0.6))
+                }
+            }
+            .lineLimit(1)
+            Spacer(minLength: 8)
+            SpectrumBars(source: row.id, playing: row.playing, color: selected ? t.accent : t.icon)
+                .frame(width: 44, height: 14)
+                .opacity(row.playing ? 1 : 0.3)
+        }
+        .frame(minHeight: 24)
+        .barAction(onHover: { hovering = $0 }, action)
     }
 }
 

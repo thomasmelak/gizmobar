@@ -564,8 +564,48 @@ struct MediaTests {
         let status = NowPlayingStatus(sources: [chrome], selected: chrome.id)
         snap.apply(BarEvent(topic: Topic.media, payload: JSONValue(encoding: status)))
         #expect(snap.nowPlaying.current?.track?.title == "B")
-        snap.apply(BarEvent(topic: Topic.spectrum, payload: .array([.number(0.5), .number(1)])))
-        #expect(snap.spectrum == [0.5, 1])
+        let zoom = AudioSource(id: "us.zoom.xos", name: "zoom.us", isActive: true, lastHeard: Date())
+        snap.apply(BarEvent(topic: Topic.audioSources, payload: JSONValue(encoding: AudioSourcesStatus(sources: [zoom]))))
+        snap.apply(BarEvent(topic: Topic.spectrum, payload: JSONValue(encoding: SourceSpectrum(source: zoom.id, levels: [0.5, 1]))))
+        #expect(snap.spectra[zoom.id] == [0.5, 1])
+        snap.apply(BarEvent(topic: Topic.spectrum, payload: JSONValue(encoding: SourceSpectrum(source: zoom.id, levels: []))))
+        #expect(snap.spectra[zoom.id] == nil)
+        // A source that goes quiet drops its levels.
+        snap.apply(BarEvent(topic: Topic.spectrum, payload: JSONValue(encoding: SourceSpectrum(source: zoom.id, levels: [0.2]))))
+        var quiet = zoom; quiet.isActive = false
+        snap.apply(BarEvent(topic: Topic.audioSources, payload: JSONValue(encoding: AudioSourcesStatus(sources: [quiet]))))
+        #expect(snap.spectra.isEmpty && snap.audioSources == [quiet])
+    }
+
+    @Test func audioSourcesOrderActiveThenRecent() {
+        let now = Date()
+        let a = AudioSource(id: "a", name: "A", isActive: false, lastHeard: now.addingTimeInterval(-60))
+        let b = AudioSource(id: "b", name: "B", isActive: true, lastHeard: now)
+        let c = AudioSource(id: "c", name: "C", isActive: false, lastHeard: now.addingTimeInterval(-10))
+        let old = AudioSource(id: "d", name: "D", isActive: false, lastHeard: now.addingTimeInterval(-3600))
+        #expect(AudioSourcesStatus.ordered([a, b, c, old], now: now).map(\.id) == ["b", "c", "a"])
+    }
+
+    @Test func shownSourcePrefersPlayingMediaThenOtherSound() {
+        let now = Date()
+        var spotify = MediaSource(id: "com.spotify.client", name: "Spotify", state: .paused, track: MediaTrack(title: "T"))
+        let zoom = AudioSource(id: "us.zoom.xos", name: "zoom.us", isActive: true, lastHeard: now)
+        let spotifySound = AudioSource(id: spotify.id, name: "Spotify", isActive: true, lastHeard: now)
+        var media = NowPlayingStatus(sources: [spotify], selected: spotify.id)
+        // Paused player, a call making sound: the call.
+        #expect(ShownSource.choose(media: media, audio: [spotifySound, zoom], picked: nil) == .audio(zoom))
+        // Playing player wins.
+        spotify.state = .playing
+        media = NowPlayingStatus(sources: [spotify], selected: spotify.id)
+        #expect(ShownSource.choose(media: media, audio: [zoom], picked: nil) == .media(spotify))
+        // A pick wins; a player is never listed as an audio-only source.
+        #expect(ShownSource.choose(media: media, audio: [zoom], picked: zoom.id) == .audio(zoom))
+        #expect(ShownSource.choose(media: media, audio: [spotifySound], picked: spotify.id) == .media(spotify))
+        // Nothing playing: the paused player, else nothing.
+        spotify.state = .paused
+        media = NowPlayingStatus(sources: [spotify], selected: spotify.id)
+        #expect(ShownSource.choose(media: media, audio: [], picked: nil) == .media(spotify))
+        #expect(ShownSource.choose(media: NowPlayingStatus(), audio: [], picked: nil) == nil)
     }
 
     @Test func artColorPicksSaturatedMajority() throws {

@@ -167,22 +167,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Runs the audio tap only while something plays and the bar shows it.
+    /// Listens to audio only while the bar shows now playing.
     private func watchPlayback() {
         let bus = self.bus, spectrum = self.spectrum!
         Task { @MainActor [weak self] in
-            var wasPlaying = false
-            for await event in await bus.subscribe(prefixes: [Topic.media, Topic.configReloaded]) {
+            var wasShown: Bool?
+            for await _ in await bus.subscribe(prefixes: [Topic.configReloaded]) {
                 guard let self else { return }
-                let status = event.topic == Topic.media ? event.payload.decode(NowPlayingStatus.self) : self.store.snapshot.nowPlaying
                 let shown = self.store.config.layout.all.contains("now_playing")
-                let playing = shown && (status?.current?.isPlaying ?? false)
-                if playing != wasPlaying {
-                    wasPlaying = playing
-                    await spectrum.setRunning(playing)
+                if shown != wasShown {
+                    wasShown = shown
+                    await spectrum.setRunning(shown)
                 }
             }
         }
+        let shown = store.config.layout.all.contains("now_playing")
+        Task { await spectrum.setRunning(shown) }
     }
 
     /// "<display id>,<value>"
@@ -294,6 +294,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 "focusedWorkspace": s.focusedWorkspace.map(JSONValue.string) ?? .null,
                 "workspaces": .array(s.workspaces.map { .string($0.id) }),
                 "frontApp": s.frontApp.map { .string($0.name) } ?? .null,
+                "nowPlaying": store.shownSource.map { .string($0.id) } ?? .null,
+                "audioSources": .array(s.audioSources.map { a in
+                    .object(["id": .string(a.id), "active": .bool(a.isActive), "spectrum": .bool(s.spectra[a.id] != nil)])
+                }),
                 "panels": .number(Double(panels.panelCount)),
                 "subscribers": .number(Double(await bus.subscriberCount)),
             ])

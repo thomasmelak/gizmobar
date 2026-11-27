@@ -14,6 +14,15 @@ public final class BarStore {
     public var icons: IconResolver
     /// Plugin widget trees.
     @ObservationIgnored public let plugins = PluginStore()
+    /// A source picked in the now playing popover (a player or any app
+    /// making sound); nil follows what's playing.
+    public var pickedSource: String?
+
+    /// What the now playing pill shows.
+    public var shownSource: ShownSource? {
+        ShownSource.choose(media: snapshot.nowPlaying, audio: snapshot.audioSources, picked: pickedSource)
+    }
+
     /// Themes the picker offers; refreshed by the app when it opens.
     public var themes: [ThemeEntry] = []
 
