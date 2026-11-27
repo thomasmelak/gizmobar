@@ -1,4 +1,5 @@
 #if canImport(CoreAudio)
+import AudioToolbox
 import CoreAudio
 import Foundation
 import GizmoCore
