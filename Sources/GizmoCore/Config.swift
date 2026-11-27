@@ -101,7 +101,7 @@ public struct Layout: Sendable, Equatable, Decodable {
     public var center: [String]
     public var right: [String]
 
-    public init(left: [String] = ["logo", "workspaces"], center: [String] = ["front_app"], right: [String] = ["network", "system", "battery", "brightness", "volume", "clock"]) {
+    public init(left: [String] = ["logo", "workspaces"], center: [String] = ["front_app"], right: [String] = ["network", "system", "battery", "brightness", "volume", "theme", "clock"]) {
         self.left = left
         self.center = center
         self.right = right

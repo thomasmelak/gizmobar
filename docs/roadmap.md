@@ -25,7 +25,7 @@ reaches parity.
 - [x] Network: speeds from 64-bit counters, Connectivity popover with Wi-Fi/Bluetooth switches
 - [x] Battery: Low Power Mode and No Sleep switches, health, charge limit; Sound: volume slider, mute, output devices
 - [x] Displays: brightness (built-in, DDC, software dimming), contrast over DDC, Night Shift
-- [ ] Theme picker, Tefer Line icons, right-click icon menu
+- [x] Theme picker: 12 bundled themes, custom/system icons switch, saved to config.toml
 
 
 CPU/GPU, memory, disk, network, power, audio, sensors; display control for

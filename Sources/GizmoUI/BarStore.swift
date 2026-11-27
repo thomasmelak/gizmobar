@@ -12,6 +12,8 @@ public final class BarStore {
     public var config: GizmoConfig
     public var theme: Theme
     public var icons: IconResolver
+    /// Themes the picker offers; refreshed by the app when it opens.
+    public var themes: [ThemeEntry] = []
 
     /// Set by the app: handles requests from widgets (refresh a provider,
     /// toggle Wi-Fi...). See `BarRequest`.
@@ -67,5 +69,8 @@ public enum BarRequest {
     public static let toggleNightShift = "displays.nightshift.toggle"
     public static func setBrightness(display: UInt32, _ v: Int) -> String { "displays.brightness:\(display),\(v)" }
     public static func setContrast(display: UInt32, _ v: Int) -> String { "displays.contrast:\(display),\(v)" }
+    public static let refreshThemes = "theme.refresh"
+    public static let toggleIconStyle = "icons.style.toggle"
+    public static func setTheme(_ id: String) -> String { "theme.set:\(id)" }
     public static func setWarmth(_ v: Int) -> String { "displays.warmth:\(v)" }
 }

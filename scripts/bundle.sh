@@ -21,6 +21,7 @@ cp Resources/Info.plist "$OUT/Contents/Info.plist"
 cp "$BIN/Gizmobar" "$OUT/Contents/MacOS/Gizmobar"
 cp "$BIN/gizmo" "$OUT/Contents/MacOS/gizmo"
 cp -R icon-packs "$OUT/Contents/Resources/icon-packs"
+cp -R themes "$OUT/Contents/Resources/themes"
 cp Resources/AppIcon/AppIcon.icns "$OUT/Contents/Resources/AppIcon.icns"
 
 codesign --force --options runtime --sign "${SIGN_IDENTITY:--}" "$OUT/Contents/MacOS/gizmo"

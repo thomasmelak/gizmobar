@@ -24,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let config = loadConfig()
         store = BarStore(config: config, theme: Theme.load(named: config.theme), icons: makeResolver(config))
         store.attach(to: bus)
+        store.themes = Theme.catalog()
 
         aerospace = AeroSpaceProvider(settings: config.aerospace)
         network = NetworkProvider()
@@ -56,6 +57,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Requests from widgets, routed to the provider that owns them.
     private func handleRequest(_ name: String) {
         let (action, arg) = name.split(separator: ":", maxSplits: 1).map(String.init).splitFirst()
+        switch action {
+        case BarRequest.refreshThemes:
+            store.themes = Theme.catalog()
+            return
+        case "theme.set":
+            guard let id = arg else { return }
+            saveConfig("theme", ConfigEditor.string(id))
+            return
+        case BarRequest.toggleIconStyle:
+            let next: IconSettings.Style = store.config.icons.style == .custom ? .system : .custom
+            saveConfig("style", ConfigEditor.string(next.rawValue), table: "icons")
+            return
+        default: break
+        }
         let network = self.network!, battery = self.battery!, audio = self.audio!, displays = self.displays!
         Task {
             switch action {
@@ -95,6 +110,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     // MARK: - Config
+
+    /// Writes one setting to config.toml and reloads right away (the watcher
+    /// would too, a moment later).
+    private func saveConfig(_ key: String, _ value: String, table: String? = nil) {
+        do {
+            try ConfigEditor.update(key, value, table: table)
+            reload()
+        } catch {
+            NSLog("gizmobar: saving \(key): \(error)")
+        }
+    }
 
     private func loadConfig() -> GizmoConfig {
         do { return try GizmoConfig.load() } catch {

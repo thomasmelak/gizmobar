@@ -399,3 +399,56 @@ struct DisplaysTests {
         #expect(snap.displays == s)
     }
 }
+
+@Suite("ConfigEditor")
+struct ConfigEditorTests {
+    let sample = """
+    # Gizmobar config
+    theme = "gizmo"   # see themes/
+
+    [icons]
+    custom_pack = "tefer-line"
+
+    [bar]
+    height = 32
+
+    """
+
+    @Test func replacesTopLevelKeepingComment() throws {
+        let out = ConfigEditor.set("theme", ConfigEditor.string("nord"), in: sample)
+        #expect(out.contains("theme = \"nord\"  # see themes/"))
+        #expect(try GizmoConfig.parse(out).theme == "nord")
+    }
+
+    @Test func insertsTopLevelAfterLeadingComments() throws {
+        let out = ConfigEditor.set("theme", ConfigEditor.string("nord"), in: "# hi\n\n[bar]\nheight = 30\n")
+        #expect(out.hasPrefix("# hi\n\ntheme = \"nord\"\n[bar]"))
+        #expect(try GizmoConfig.parse(out).bar.height == 30)
+    }
+
+    @Test func setsInTable() throws {
+        let out = ConfigEditor.set("style", ConfigEditor.string("system"), table: "icons", in: sample)
+        let c = try GizmoConfig.parse(out)
+        #expect(c.icons.style == .system)
+        #expect(c.icons.customPack == "tefer-line")
+        #expect(c.bar.height == 32)
+    }
+
+    @Test func addsMissingTable() throws {
+        let out = ConfigEditor.set("style", ConfigEditor.string("system"), table: "icons", in: "theme = \"nord\"\n")
+        #expect(try GizmoConfig.parse(out).icons.style == .system)
+    }
+}
+
+@Suite("Themes")
+struct ThemeCatalogTests {
+    @Test func bundledThemesParse() throws {
+        let dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("themes")
+        let entries = Theme.catalog(in: [dir])
+        #expect(entries.first?.id == "gizmo")
+        #expect(entries.count == 12)
+        #expect(Theme.load(named: "nord", in: dir).accent == "#88c0d0")
+        #expect(Theme.load(named: "missing", in: dir) == .gizmo)
+    }
+}

@@ -105,13 +105,50 @@ public struct Theme: Sendable, Equatable, Decodable {
         fontSize = try c.decodeIfPresent(Double.self, forKey: .fontSize) ?? t.fontSize
     }
 
-    public static func load(named name: String, in dir: URL = GizmoPaths.themesDir) -> Theme {
-        let url = dir.appendingPathComponent("\(name).toml")
-        guard let text = try? String(contentsOf: url, encoding: .utf8),
-              let theme = try? TOMLDecoder().decode(Theme.self, from: text)
-        else { return .gizmo }
-        return theme
+    /// Theme folders, highest priority first: yours, then the ones bundled
+    /// with the app.
+    public static var searchDirs: [URL] {
+        var dirs = [GizmoPaths.themesDir]
+        if let bundled = Bundle.main.resourceURL?.appendingPathComponent("themes", isDirectory: true) { dirs.append(bundled) }
+        return dirs
     }
+
+    public static func load(named name: String, in dirs: [URL] = Theme.searchDirs) -> Theme {
+        for dir in dirs {
+            let url = dir.appendingPathComponent("\(name).toml")
+            guard let text = try? String(contentsOf: url, encoding: .utf8) else { continue }
+            if let theme = try? TOMLDecoder().decode(Theme.self, from: text) { return theme }
+        }
+        return .gizmo
+    }
+
+    public static func load(named name: String, in dir: URL) -> Theme { load(named: name, in: [dir]) }
+
+    /// Every theme in `dirs` (a theme of yours hides a bundled one with the
+    /// same id), Gizmo first and the rest by name.
+    public static func catalog(in dirs: [URL] = Theme.searchDirs) -> [ThemeEntry] {
+        var entries: [String: ThemeEntry] = ["gizmo": ThemeEntry(id: "gizmo", name: Theme.gizmo.name)]
+        for dir in dirs.reversed() {
+            let files = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
+            for url in files where url.pathExtension == "toml" {
+                let id = url.deletingPathExtension().lastPathComponent
+                guard let text = try? String(contentsOf: url, encoding: .utf8),
+                      let theme = try? TOMLDecoder().decode(Theme.self, from: text) else { continue }
+                entries[id] = ThemeEntry(id: id, name: theme.name)
+            }
+        }
+        return entries.values.sorted { a, b in
+            if a.id == "gizmo" || b.id == "gizmo" { return a.id == "gizmo" }
+            return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+        }
+    }
+}
+
+/// A theme the picker can offer: its file name and display name.
+public struct ThemeEntry: Sendable, Equatable, Identifiable {
+    public var id: String
+    public var name: String
+    public init(id: String, name: String) { self.id = id; self.name = name }
 }
 
 /// Parses `#RGB`, `#RRGGBB`, `#RRGGBBAA` and SketchyBar's `0xAARRGGBB`.

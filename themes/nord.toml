@@ -1,0 +1,21 @@
+# Nord, ported from the SketchyBar themes/nord.sh.
+# Backgrounds use the glass alphas from the Gizmo theme; other keys fall
+# back to Gizmo (corner radius, font).
+name = "Nord"
+item_bg = "#2e344099"
+item_border = "#4c566a"
+icon = "#88c0d0"
+label = "#eceff4"
+ws_bg = "#2e344073"
+ws_icon = "#7b88a1"
+ws_focus_bg = "#3b425299"
+ws_focus_border = "#88c0d0"
+ws_focus_icon = "#88c0d0"
+accent = "#88c0d0"
+popup_bg = "#2e3440b8"
+popup_border = "#88c0d0"
+net_down = "#a3be8c"
+net_up = "#81a1c1"
+good = "#a3be8c"
+warn = "#ebcb8b"
+bad = "#bf616a"

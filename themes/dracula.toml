@@ -1,0 +1,21 @@
+# Dracula, ported from the SketchyBar themes/dracula.sh.
+# Backgrounds use the glass alphas from the Gizmo theme; other keys fall
+# back to Gizmo (corner radius, font).
+name = "Dracula"
+item_bg = "#282a3699"
+item_border = "#44475a"
+icon = "#bd93f9"
+label = "#f8f8f2"
+ws_bg = "#282a3673"
+ws_icon = "#6272a4"
+ws_focus_bg = "#44475a99"
+ws_focus_border = "#ff79c6"
+ws_focus_icon = "#ff79c6"
+accent = "#ff79c6"
+popup_bg = "#282a36b8"
+popup_border = "#ff79c6"
+net_down = "#50fa7b"
+net_up = "#8be9fd"
+good = "#50fa7b"
+warn = "#f1fa8c"
+bad = "#ff5555"
