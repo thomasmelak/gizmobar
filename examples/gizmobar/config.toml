@@ -51,6 +51,7 @@ mode = "subscribe"    # subscribe (0.21+) | callback | off
 max_app_icons = 8
 hide_empty = true                 # hide workspaces with no windows
 show_focused_when_empty = true    # ...except the one you're on
+per_monitor = true                # each display's bar shows its own monitor's workspaces
 move_workspace_to_monitor = false
 
 [icons]

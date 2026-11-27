@@ -185,6 +185,40 @@ import Testing
         #expect(s.visibleWorkspaces(AeroSpaceSettings(hideEmpty: false)).map(\.id) == ["1", "2", "3"])
     }
 
+    @Test func showsEachMonitorsWorkspaces() {
+        var s = BarSnapshot()
+        s.apply(BarEvent(topic: Topic.aerospaceSnapshot, payload: [
+            "workspaces": [
+                ["workspace": "1", "monitor-appkit-nsscreen-screens-id": 1, "workspace-is-visible": true],
+                ["workspace": "2", "monitor-appkit-nsscreen-screens-id": 1, "workspace-is-visible": false],
+                ["workspace": "3", "monitor-appkit-nsscreen-screens-id": 2, "workspace-is-visible": true],
+                ["workspace": "4", "monitor-appkit-nsscreen-screens-id": 2, "workspace-is-visible": false],
+            ],
+            "focused": "1",
+            "windows": [
+                ["window-id": 1, "workspace": "2", "app-bundle-id": "dev.zed.Zed", "app-name": "Zed"],
+                ["window-id": 2, "workspace": "4", "app-bundle-id": "com.spotify.client", "app-name": "Spotify"],
+            ],
+        ]))
+        let settings = AeroSpaceSettings()
+        // The empty workspace each monitor shows stays; others hide when empty.
+        #expect(s.visibleWorkspaces(settings, monitor: 1).map(\.id) == ["1", "2"])
+        #expect(s.visibleWorkspaces(settings, monitor: 2).map(\.id) == ["3", "4"])
+        #expect(s.visibleWorkspaces(settings).map(\.id) == ["1", "2", "4"])
+        #expect(s.visibleWorkspaces(AeroSpaceSettings(perMonitor: false), monitor: 2).map(\.id) == ["1", "2", "4"])
+
+        // Focusing 4 makes it the one monitor 2 shows; 3 is now an empty, hidden workspace.
+        s.apply(BarEvent(topic: Topic.aerospaceFocusedWorkspace, payload: ["workspace": "4"]))
+        #expect(s.visibleWorkspaces(settings, monitor: 2).map(\.id) == ["4"])
+        #expect(s.visibleWorkspaces(settings, monitor: 1).map(\.id) == ["1", "2"])
+        #expect(s.workspaces.first { $0.id == "1" }?.isVisible == true)
+    }
+
+    @Test func parsesPerMonitorSetting() throws {
+        #expect(try GizmoConfig.parse("").aerospace.perMonitor)
+        #expect(try !GizmoConfig.parse("[aerospace]\nper_monitor = false\n").aerospace.perMonitor)
+    }
+
     @Test func storesExternalTriggers() {
         var s = BarSnapshot()
         s.apply(BarEvent(topic: "vpn.status", payload: ["up": true]))

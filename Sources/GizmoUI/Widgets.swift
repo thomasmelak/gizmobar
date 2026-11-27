@@ -32,17 +32,34 @@ struct Pill<Content: View>: View {
     }
 }
 
+private struct BarMonitorKey: EnvironmentKey {
+    static let defaultValue: Int? = nil
+}
+
+extension EnvironmentValues {
+    /// The bar's display as AeroSpace numbers monitors (1-based index into
+    /// `NSScreen.screens`); nil when one bar shows everything.
+    var barMonitor: Int? {
+        get { self[BarMonitorKey.self] }
+        set { self[BarMonitorKey.self] = newValue }
+    }
+}
+
+/// With `[aerospace] per_monitor` (the default) each display's bar shows only
+/// the workspaces AeroSpace has on that monitor.
 struct WorkspacesWidget: View {
     @Environment(BarStore.self) private var store
+    @Environment(\.barMonitor) private var monitor
 
     var body: some View {
+        let list = store.snapshot.visibleWorkspaces(store.config.aerospace, monitor: monitor)
         HStack(spacing: 6) {
-            ForEach(store.snapshot.visibleWorkspaces(store.config.aerospace)) { ws in
-                WorkspacePill(ws: ws)
+            ForEach(list) { ws in
+                WorkspacePill(ws: ws, current: ws.isFocused || (monitor != nil && ws.isVisible))
                     .transition(.scale(scale: 0.8).combined(with: .opacity))
             }
         }
-        .animation(.snappy(duration: 0.2), value: store.snapshot.visibleWorkspaces(store.config.aerospace).map(\.id))
+        .animation(.snappy(duration: 0.2), value: list.map(\.id))
     }
 }
 
@@ -50,13 +67,15 @@ struct WorkspacesWidget: View {
 /// SketchyBar's `hover.sh workspace`.
 private struct WorkspacePill: View {
     let ws: WorkspaceInfo
+    /// Focused, or the workspace this bar's monitor is showing.
+    let current: Bool
     @Environment(BarStore.self) private var store
     @State private var hovering = false
 
     var body: some View {
         let t = store.theme
-        let numberColor = hovering ? t.accent : (ws.isFocused ? t.workspaceFocusIcon : t.workspaceIcon)
-        Pill(focused: ws.isFocused) {
+        let numberColor = hovering ? t.accent : (current ? t.workspaceFocusIcon : t.workspaceIcon)
+        Pill(focused: current) {
             HStack(spacing: 5) {
                 Text(ws.id)
                     .font(.custom(t.font, size: t.fontSize).weight(.semibold))
@@ -67,7 +86,7 @@ private struct WorkspacePill: View {
             }
         }
         .barAction(onHover: { hovering = $0 }) { store.onFocusWorkspace?(ws.id) }
-        .animation(.snappy(duration: 0.18), value: ws.isFocused)
+        .animation(.snappy(duration: 0.18), value: current)
         .animation(.easeOut(duration: 0.12), value: hovering)
     }
 }

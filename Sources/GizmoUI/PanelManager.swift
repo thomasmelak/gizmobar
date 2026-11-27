@@ -184,7 +184,9 @@ public final class PanelManager {
             let hidden = screen.displayID.map { wantsHidden.contains($0) && !revealed.contains($0) } ?? false
             let frame = frame(on: screen, shown: !hidden)
             let panel = BarPanel(frame: frame)
-            let root = BarView().environment(store).environment(store.plugins)
+            // AeroSpace's appkit monitor id is the screen's place in NSScreen.screens.
+            let monitor = bar.displays == .main ? nil : NSScreen.screens.firstIndex(of: screen).map { $0 + 1 }
+            let root = BarView().environment(store).environment(store.plugins).environment(\.barMonitor, monitor)
             panel.contentView = NSHostingView(rootView: root)
             panel.setFrame(frame, display: false)
             panel.orderFrontRegardless()

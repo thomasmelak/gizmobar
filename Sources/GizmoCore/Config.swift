@@ -163,10 +163,13 @@ public struct AeroSpaceSettings: Sendable, Equatable, Decodable {
     public var hideEmpty: Bool
     /// Keep the focused workspace visible even when it's empty.
     public var showFocusedWhenEmpty: Bool
+    /// Each display's bar shows only the workspaces on that monitor.
+    public var perMonitor: Bool
 
     public init(mode: Mode = .subscribe, binary: String? = nil, moveWorkspaceToMonitor: Bool = false, maxAppIcons: Int = 8,
-                hideEmpty: Bool = true, showFocusedWhenEmpty: Bool = true)
+                hideEmpty: Bool = true, showFocusedWhenEmpty: Bool = true, perMonitor: Bool = true)
     {
+        self.perMonitor = perMonitor
         self.mode = mode
         self.binary = binary
         self.moveWorkspaceToMonitor = moveWorkspaceToMonitor
@@ -184,6 +187,7 @@ public struct AeroSpaceSettings: Sendable, Equatable, Decodable {
         maxAppIcons = try c.decodeIfPresent(Int.self, forKey: .maxAppIcons) ?? d.maxAppIcons
         hideEmpty = try c.decodeIfPresent(Bool.self, forKey: .hideEmpty) ?? d.hideEmpty
         showFocusedWhenEmpty = try c.decodeIfPresent(Bool.self, forKey: .showFocusedWhenEmpty) ?? d.showFocusedWhenEmpty
+        perMonitor = try c.decodeIfPresent(Bool.self, forKey: .perMonitor) ?? d.perMonitor
     }
 
     enum CodingKeys: String, CodingKey {
@@ -192,6 +196,7 @@ public struct AeroSpaceSettings: Sendable, Equatable, Decodable {
         case maxAppIcons = "max_app_icons"
         case hideEmpty = "hide_empty"
         case showFocusedWhenEmpty = "show_focused_when_empty"
+        case perMonitor = "per_monitor"
     }
 }
 

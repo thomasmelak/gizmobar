@@ -55,6 +55,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startPlugins(config)
         panels = PanelManager(store: store)
         panels.start()
+        // Plugging in or removing a display renumbers AeroSpace's monitors.
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
+        ) { [aerospace] _ in
+            Task { await aerospace?.refresh(after: .seconds(1)) }
+        }
         startServer()
         updateLoginItem(config.launchAtLogin)
 

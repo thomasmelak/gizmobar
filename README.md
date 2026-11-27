@@ -70,6 +70,9 @@ With AeroSpace 0.21+ the bar keeps one `aerospace subscribe` stream open, so
 exec-on-workspace-change = ['gizmo', 'trigger', 'aerospace.workspace']
 ```
 
+With several displays, each bar shows the workspaces AeroSpace has on that
+monitor (`[aerospace] per_monitor = false` lists them all everywhere).
+
 ## Now playing
 
 Spotify and Music work out of the box (macOS asks once to let Gizmobar
