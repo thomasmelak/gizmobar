@@ -139,6 +139,8 @@ struct ModelSceneView: NSViewRepresentable {
         v.configure(url: url, options: options, orbit: orbit)
         v.onClick = onClick
         v.onLoaded = onLoaded
+        // A new view starts from the plugin's clip, not from an old one-shot.
+        if let command { v.skip(command) }
         return v
     }
 
@@ -202,7 +204,8 @@ final class ModelSceneHost: NSView {
             self.url = url
             load()
         } else if clipChanged, let clip = options.clip {
-            transition(to: clip, blend: Float(options.blend))
+            // A one-shot finishes first, then goes to the new clip.
+            if onceReturn != nil { onceReturn = clip } else { transition(to: clip, blend: Float(options.blend)) }
         }
         if let scene { for (name, o) in options.parts { scene.apply(part: name, o) } }
         wake()
@@ -254,6 +257,8 @@ final class ModelSceneHost: NSView {
 
     // MARK: Playback
 
+    func skip(_ c: SceneCommand) { lastSeq = c.seq }
+
     func apply(_ c: SceneCommand) {
         guard c.seq != lastSeq else { return }
         lastSeq = c.seq
@@ -262,7 +267,9 @@ final class ModelSceneHost: NSView {
             guard let clip = c.payload["clip"]?.string else { return }
             let once: Bool = { if case .bool(let b)? = c.payload["once"] { return b }; return false }()
             let blend: Float = { if case .number(let n)? = c.payload["blend"] { return Float(n) }; return 0.25 }()
-            onceReturn = once ? (currentClip ?? options?.clip) : nil
+            // Return to the plugin's looping clip, never to another one-shot,
+            // so a click during a wave can't leave the wave looping.
+            onceReturn = once ? (options?.clip ?? onceReturn ?? currentClip) : nil
             transition(to: clip, blend: blend)
         case "scene.set":
             guard let part = c.payload["part"]?.string else { return }
