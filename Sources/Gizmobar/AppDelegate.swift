@@ -21,6 +21,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var apps: AppsProvider!
     private var media: MediaProvider!
     private var spectrum: SpectrumProvider!
+    private var spotify: SpotifyProvider!
+    private var lyrics: LyricsProvider!
     private var providers: [any Provider] = []
     private var watcher: ConfigWatcher?
     private var plugins: PluginManager!
@@ -42,7 +44,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         apps = AppsProvider()
         media = MediaProvider(settings: config.media)
         spectrum = SpectrumProvider(settings: config.media)
-        providers = [ClockProvider(), apps, aerospace, SystemProvider(), network, battery, audio, displays, media, spectrum]
+        spotify = SpotifyProvider(settings: config.spotify, media: media)
+        lyrics = LyricsProvider(settings: config.lyrics)
+        providers = [ClockProvider(), apps, aerospace, SystemProvider(), network, battery, audio, displays, media, spectrum, spotify, lyrics]
         watchPlayback()
         store.onRequest = { [weak self] name in self?.handleRequest(name) }
         store.onFocusWorkspace = { [aerospace] ws in
@@ -135,6 +139,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         default: break
         }
         let network = self.network!, battery = self.battery!, audio = self.audio!, displays = self.displays!, media = self.media!
+        let spotify = self.spotify!
         Task {
             switch action {
             case BarRequest.refreshConnectivity: await network.refreshConnectivity()
@@ -156,6 +161,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case BarRequest.mediaRepeat: await media.send(.repeat)
             case "media.seek": if let v = arg.flatMap(Double.init) { await media.seek(v) }
             case "media.select": if let id = arg { await media.select(id) }
+            case BarRequest.spotifyLogin: await spotify.login()
+            case BarRequest.spotifyLogout: await spotify.logout()
+            case "spotify.play": if let uri = arg { await spotify.play(uri) }
             case BarRequest.refreshDisplays: await displays.refresh()
             case BarRequest.toggleNightShift: await displays.toggleNightShift()
             case "displays.brightness":
@@ -248,10 +256,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.config = config
         store.theme = Theme.load(named: config.theme)
         store.invalidateIcons(makeResolver(config))
-        let media = self.media!, spectrum = self.spectrum!
+        let media = self.media!, spectrum = self.spectrum!, spotify = self.spotify!, lyrics = self.lyrics!
         Task {
             await media.update(settings: config.media)
             await spectrum.update(settings: config.media)
+            await spotify.update(settings: config.spotify)
+            await lyrics.update(settings: config.lyrics)
         }
         if layoutChanged { panels.rebuild() }
         plugins.update(theme: store.theme, settings: config.plugins)
@@ -296,6 +306,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 "workspaces": .array(s.workspaces.map { .string($0.id) }),
                 "frontApp": s.frontApp.map { .string($0.name) } ?? .null,
                 "nowPlaying": store.shownSource.map { .string($0.id) } ?? .null,
+                "lyrics": s.lyrics.map { .object(["lines": .number(Double($0.lines.count)), "synced": .bool($0.isSynced)]) } ?? .null,
+                "spotify": .object(["configured": .bool(s.spotify.configured), "signedIn": .bool(s.spotify.signedIn)]),
                 "audioSources": .array(s.audioSources.map { a in
                     .object(["id": .string(a.id), "active": .bool(a.isActive), "spectrum": .bool(s.spectra[a.id] != nil)])
                 }),

@@ -601,6 +601,26 @@ struct MediaTests {
         #expect(snap.spectra == ["a": [0.3], "b": [0.2]])
     }
 
+    @Test func lyricsParseLRCAndFollowPosition() throws {
+        let lrc = "[ar:Someone]\n[00:01.50]First\n[00:04.00][00:20.00]Chorus\n[00:10.25] Second \n"
+        let lines = Lyrics.parseLRC(lrc)
+        #expect(lines.map(\.text) == ["First", "Chorus", "Second", "Chorus"])
+        #expect(lines.map(\.time) == [1.5, 4, 10.25, 20])
+        let l = Lyrics(key: "k", lines: lines)
+        #expect(l.isSynced)
+        #expect(l.index(at: 0) == nil)
+        #expect(l.index(at: 5) == 1)
+        #expect(l.index(at: 30) == 3)
+        #expect(Lyrics(key: "k", lines: Lyrics.parsePlain("a\nb")).index(at: 5) == nil)
+    }
+
+    @Test func spotifyConfigDecodes() throws {
+        let c = try GizmoConfig.parse("[spotify]\nclient_id = \"abc\"\n[lyrics]\nenabled = false\n")
+        #expect(c.spotify.isConfigured && c.spotify.redirectURI == "http://127.0.0.1:43821/callback")
+        #expect(!c.lyrics.enabled)
+        #expect(!(try GizmoConfig.parse("")).spotify.isConfigured)
+    }
+
     @Test func audioSourcesOrderActiveThenRecent() {
         let now = Date()
         let a = AudioSource(id: "a", name: "A", isActive: false, lastHeard: now.addingTimeInterval(-60))

@@ -206,6 +206,7 @@ struct RightClickArea: NSViewRepresentable {
 
 struct NowPlayingPopover: View {
     @Environment(BarStore.self) private var store
+    @State private var showLyrics = false
 
     var body: some View {
         let t = store.theme
@@ -222,8 +223,14 @@ struct NowPlayingPopover: View {
                 case .media(let source):
                     if let track = source.track {
                         let tint = track.artColor ?? t.accent
-                        ArtCarousel(source: source, track: track, tint: tint)
-                            .frame(maxWidth: .infinity)
+                        if showLyrics, let lyrics = store.snapshot.lyrics, lyrics.key == track.key {
+                            LyricsView(lyrics: lyrics, source: source, tint: tint)
+                                .transition(.opacity)
+                        } else {
+                            ArtCarousel(source: source, track: track, tint: tint)
+                                .frame(maxWidth: .infinity)
+                                .transition(.opacity)
+                        }
                         VStack(alignment: .leading, spacing: 2) {
                             Text(track.title).font(.custom(t.font, size: t.fontSize + 2).bold()).lineLimit(2)
                             if !track.artist.isEmpty { Text(track.artist).foregroundStyle(Color(hex: tint)).lineLimit(1) }
@@ -233,7 +240,15 @@ struct NowPlayingPopover: View {
                         .transition(.opacity)
                         Scrubber(source: source, tint: tint)
                         Controls(source: source, tint: tint)
+                        if let lyrics = store.snapshot.lyrics, lyrics.key == track.key, !lyrics.lines.isEmpty {
+                            LyricsPeek(lyrics: lyrics, source: source, tint: tint, open: showLyrics) {
+                                withAnimation(.easeInOut(duration: 0.25)) { showLyrics.toggle() }
+                            }
+                        }
                         SpectrumBars(source: source.id, playing: source.isPlaying, color: tint).frame(height: 28)
+                        if source.id == "com.spotify.client", store.snapshot.spotify.configured {
+                            SpotifySection(tint: tint)
+                        }
                     }
                 case .audio(let source):
                     VStack(spacing: 10) {
@@ -250,6 +265,162 @@ struct NowPlayingPopover: View {
             .frame(width: 260)
             .animation(.easeInOut(duration: 0.35), value: shown.id)
         }
+    }
+}
+
+/// The line being sung and the next one, or a button for plain lyrics.
+/// Click to swap the album art for the full lyrics.
+private struct LyricsPeek: View {
+    let lyrics: Lyrics
+    let source: MediaSource
+    let tint: String
+    let open: Bool
+    let toggle: @MainActor () -> Void
+    @Environment(BarStore.self) private var store
+
+    var body: some View {
+        let t = store.theme
+        TimelineView(.periodic(from: .now, by: source.isPlaying && lyrics.isSynced ? 0.25 : 3600)) { tl in
+            let i = lyrics.index(at: source.position(at: tl.date) ?? 0)
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: open ? "photo" : "quote.bubble")
+                    .foregroundStyle(Color(hex: tint))
+                    .frame(width: 18)
+                VStack(alignment: .leading, spacing: 2) {
+                    if lyrics.instrumental {
+                        Text("Instrumental").foregroundStyle(Color(hex: t.label).opacity(0.7))
+                    } else if let i, !open {
+                        Text(lyrics.lines[i].text.isEmpty ? "♪" : lyrics.lines[i].text)
+                            .foregroundStyle(Color(hex: t.label)).bold()
+                        if i + 1 < lyrics.lines.count {
+                            Text(lyrics.lines[i + 1].text).foregroundStyle(Color(hex: t.label).opacity(0.5))
+                        }
+                    } else {
+                        Text(open ? "Show artwork" : "Lyrics").foregroundStyle(Color(hex: t.label).opacity(0.8))
+                    }
+                }
+                .font(.system(size: 11))
+                .lineLimit(1)
+                .id(i)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                Spacer(minLength: 0)
+            }
+            .animation(.easeOut(duration: 0.25), value: i)
+        }
+        .barAction(toggle)
+    }
+}
+
+/// All the lyrics in the art's place, following the track when synced.
+/// Click a synced line to jump there.
+private struct LyricsView: View {
+    let lyrics: Lyrics
+    let source: MediaSource
+    let tint: String
+    @Environment(BarStore.self) private var store
+
+    var body: some View {
+        let t = store.theme
+        TimelineView(.periodic(from: .now, by: source.isPlaying && lyrics.isSynced ? 0.25 : 3600)) { tl in
+            let current = lyrics.index(at: source.position(at: tl.date) ?? 0)
+            ScrollViewReader { proxy in
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(Array(lyrics.lines.enumerated()), id: \.offset) { i, line in
+                            Text(line.text.isEmpty ? " " : line.text)
+                                .font(.system(size: 14, weight: i == current ? .bold : .medium))
+                                .foregroundStyle(Color(hex: i == current ? tint : t.label).opacity(current == nil || i == current ? 1 : 0.45))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .id(i)
+                                .onTapGesture {
+                                    if let time = line.time { store.request(BarRequest.mediaSeek(time)) }
+                                }
+                        }
+                    }
+                    .padding(.vertical, 90)
+                }
+                .onChange(of: current) { _, i in
+                    if let i { withAnimation(.easeInOut(duration: 0.35)) { proxy.scrollTo(i, anchor: .center) } }
+                }
+                .onAppear { if let current { proxy.scrollTo(current, anchor: .center) } }
+            }
+        }
+        .frame(height: 220)
+        .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.15),
+                                     .init(color: .black, location: 0.85), .init(color: .clear, location: 1)],
+                             startPoint: .top, endPoint: .bottom))
+    }
+}
+
+/// Spotify sign-in, then your playlists (click one to play it).
+private struct SpotifySection: View {
+    let tint: String
+    @Environment(BarStore.self) private var store
+    @State private var open = false
+
+    var body: some View {
+        let t = store.theme
+        let sp = store.snapshot.spotify
+        PopupDivider()
+        if !sp.signedIn {
+            PopupRow(icon: "person.crop.circle.badge.plus",
+                     text: sp.signingIn ? "Finish signing in in your browser…" : "Sign in to Spotify",
+                     color: sp.signingIn ? t.workspaceIcon : nil,
+                     action: sp.signingIn ? nil : { store.request(BarRequest.spotifyLogin) })
+            if let e = sp.error {
+                Text(e).font(.system(size: 10)).foregroundStyle(Color(hex: t.label).opacity(0.6)).lineLimit(2)
+            }
+        } else {
+            PopupRow(icon: open ? "chevron.up" : "music.note.list", text: "Playlists", action: {
+                withAnimation(.easeInOut(duration: 0.2)) { open.toggle() }
+            }) {
+                if let user = sp.user {
+                    Text(user).font(.system(size: 10)).foregroundStyle(Color(hex: t.label).opacity(0.6))
+                }
+            }
+            if open {
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(sp.playlists) { p in
+                            PlaylistRow(playlist: p, tint: tint)
+                        }
+                        PopupRow(icon: "rectangle.portrait.and.arrow.right", text: "Sign out of Spotify", color: t.workspaceIcon,
+                                 action: { store.request(BarRequest.spotifyLogout) })
+                    }
+                }
+                .frame(height: min(200, CGFloat(sp.playlists.count + 1) * 30))
+            }
+        }
+    }
+}
+
+private struct PlaylistRow: View {
+    let playlist: PlaylistRef
+    let tint: String
+    @Environment(BarStore.self) private var store
+    @State private var hovering = false
+
+    var body: some View {
+        let t = store.theme
+        HStack(spacing: 8) {
+            Group {
+                if let path = playlist.artworkPath, let image = NSImage(contentsOfFile: path) {
+                    Image(nsImage: image).resizable().scaledToFill()
+                } else {
+                    Image(systemName: "music.note.list").foregroundStyle(Color(hex: tint))
+                }
+            }
+            .frame(width: 24, height: 24)
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+            Text(playlist.name).lineLimit(1)
+                .foregroundStyle(Color(hex: hovering ? tint : t.label))
+            Spacer(minLength: 6)
+            if let n = playlist.tracks {
+                Text("\(n)").font(.system(size: 10).monospacedDigit()).foregroundStyle(Color(hex: t.label).opacity(0.5))
+            }
+        }
+        .frame(height: 26)
+        .barAction(onHover: { hovering = $0 }) { store.request(BarRequest.spotifyPlay(playlist.uri)) }
     }
 }
 

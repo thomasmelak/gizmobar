@@ -65,6 +65,9 @@ public struct BarSnapshot: Sendable, Equatable {
     public var nowPlaying = NowPlayingStatus()
     /// Live spectrum levels (0...1) per audio source, while its tap runs.
     public var spectra: [String: [Float]] = [:]
+    public var spotify = SpotifyStatus()
+    /// Lyrics of the shown track, when found.
+    public var lyrics: Lyrics?
     /// Apps making sound now or recently.
     public var audioSources: [AudioSource] = []
     /// Last payload per external `gizmo trigger` topic.
@@ -121,6 +124,12 @@ public struct BarSnapshot: Sendable, Equatable {
             if let s = event.payload.decode(SourceSpectrum.self) {
                 spectra[s.source] = s.levels.isEmpty ? nil : s.levels
             }
+
+        case Topic.spotify:
+            spotify = event.payload.decode(SpotifyStatus.self) ?? SpotifyStatus()
+
+        case Topic.lyrics:
+            lyrics = event.payload.decode(Lyrics.self)
 
         case Topic.audioSources:
             audioSources = event.payload.decode(AudioSourcesStatus.self)?.sources ?? []

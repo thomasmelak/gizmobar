@@ -139,9 +139,29 @@ adapter = "~/.local/share/mediaremote-adapter"   # holds mediaremote-adapter.pl 
 ```
 
 Without it the bar falls back to `nowplaying-cli` when that's installed.
-The spectrum comes from a Core Audio tap (macOS 14.2+, asks for audio
-capture once); deny it or set `spectrum = false` and the bars animate on
-their own.
+Each app that makes sound gets its own spectrum from a Core Audio process
+tap (macOS 14.2+, asks for audio capture once); deny it or set
+`spectrum = false` and the bars animate on their own. Apps that aren't
+players (calls, videos) show in the pill by name, and the popover lists
+everything playing now or heard in the last 10 minutes.
+
+Lyrics come from [LRCLIB](https://lrclib.net), synced when it has timings
+(`[lyrics] enabled = false` to turn them off).
+
+### Spotify
+
+Signing in adds the up-next queue beside the album art and your playlists
+to the popover. Create an app at
+[developer.spotify.com](https://developer.spotify.com/dashboard) with the
+redirect URI `http://127.0.0.1:43821/callback`, then set its client ID:
+
+```toml
+[spotify]
+client_id = "your client id"
+```
+
+Open the Now Playing popover on a Spotify track and choose **Sign in to
+Spotify**. The refresh token is kept in the login Keychain.
 
 ## Configuration
 

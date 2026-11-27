@@ -71,9 +71,18 @@ debug_fallbacks = false
 
 [media]
 # adapter = "~/.local/share/mediaremote-adapter"   # any app's media (browsers...), see README
-spectrum = true        # live bars from a Core Audio tap; false = animated bars
+spectrum = true        # live bars per app from Core Audio taps; false = animated bars
 bands = 24
 width = 156
+
+[lyrics]
+enabled = true         # from lrclib.net (sends title, artist, album and length)
+
+# [spotify]
+# client_id = "..."    # an app at developer.spotify.com with redirect URI
+#                      # http://127.0.0.1:43821/callback; adds the up-next queue
+#                      # and your playlists to the Now Playing popover
+# port = 43821
 
 # [plugins.uptime-globe]
 # every = 60

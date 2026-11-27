@@ -95,6 +95,9 @@ public enum BarRequest {
     public static let mediaRepeat = "media.repeat"
     public static func mediaSeek(_ seconds: Double) -> String { "media.seek:\(seconds)" }
     public static func mediaSelect(_ id: String) -> String { "media.select:\(id)" }
+    public static let spotifyLogin = "spotify.login"
+    public static let spotifyLogout = "spotify.logout"
+    public static func spotifyPlay(_ uri: String) -> String { "spotify.play:\(uri)" }
     public static func setTheme(_ id: String) -> String { "theme.set:\(id)" }
     public static func setWarmth(_ v: Int) -> String { "displays.warmth:\(v)" }
 }
