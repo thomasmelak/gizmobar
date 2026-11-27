@@ -577,6 +577,19 @@ struct MediaTests {
         #expect(snap.spectra.isEmpty && snap.audioSources == [quiet])
     }
 
+    @Test func busKeepsEachSourcesSpectrum() async {
+        let bus = EventBus(flushWindow: .seconds(60))
+        let stream = await bus.subscribe(prefixes: [Topic.spectrum])
+        for (id, l) in [("a", 0.1), ("b", 0.2), ("a", 0.3)] as [(String, Float)] {
+            await bus.publish(topic: Topic.spectrum, key: id, payload: JSONValue(encoding: SourceSpectrum(source: id, levels: [l])))
+        }
+        await bus.flush()
+        var snap = BarSnapshot()
+        var it = stream.makeAsyncIterator()
+        for _ in 0..<2 { if let e = await it.next() { snap.apply(e) } }
+        #expect(snap.spectra == ["a": [0.3], "b": [0.2]])
+    }
+
     @Test func audioSourcesOrderActiveThenRecent() {
         let now = Date()
         let a = AudioSource(id: "a", name: "A", isActive: false, lastHeard: now.addingTimeInterval(-60))
