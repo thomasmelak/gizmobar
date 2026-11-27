@@ -49,6 +49,15 @@ gizmo debug                         # plugin render times and budgets
 Widgets can be written in TypeScript. `gizmo new my-plugin`, add it to
 your layout, save, and it's on the bar. See [docs/plugins.md](docs/plugins.md).
 
+## 3D models
+
+Plugins can put a glTF, GLB or USDZ model on the bar with `ui.scene`, play
+its animation clips, recolor parts and open a popover you can orbit. A
+still model is swapped for a snapshot, so it costs nothing at rest. There
+is a dot globe too: add `"globe"` to your layout, or use `ui.globe` with
+your own markers. See the `status-pet` and `uptime-globe` examples and
+[docs/plugins.md](docs/plugins.md#3d-scenes).
+
 ## AeroSpace
 
 With AeroSpace 0.21+ the bar keeps one `aerospace subscribe` stream open, so
@@ -104,7 +113,7 @@ Sources/
   GizmoIPC/        Unix socket protocol for the CLI
   GizmoProviders/  system, network, power, audio, displays, media, AeroSpace
   GizmoPlugins/    JavaScriptCore plugin runtime
-  GizmoScene/      3D scene contract (glTF/GLB/USDZ, Phase 5)
+  GizmoScene/      glTF reader, RealityKit scenes, dot globe
   GizmoUI/         panels per display, widgets, icon rendering
   Gizmobar/        the app
   gizmo/           the CLI

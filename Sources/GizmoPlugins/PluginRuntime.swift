@@ -170,7 +170,6 @@ public final class PluginRuntime: @unchecked Sendable {
         set("exec", { [weak self] (cmd: String, argsJSON: String, id: Int) in
             self?.exec(cmd, argsJSON, id)
         } as @convention(block) (String, String, Int) -> Void)
-        set("sceneClips", { "[]" } as @convention(block) () -> String)
         context.setObject(host, forKeyedSubscript: "__host" as NSString)
     }
 

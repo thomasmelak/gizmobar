@@ -15,6 +15,7 @@ autohide = "fullscreen"  # never | fullscreen | always: slides away, back when t
 [layout]
 left = ["logo", "workspaces"]
 center = ["front_app"]
+# Plugins and "globe" go in any list too, e.g. "status-pet", "uptime-globe".
 right = ["now_playing", "network", "system", "battery", "brightness", "volume", "theme", "clock"]
 
 [logo]
@@ -72,3 +73,9 @@ debug_fallbacks = false
 spectrum = true        # live bars from a Core Audio tap; false = animated bars
 bands = 24
 width = 156
+
+# [plugins.uptime-globe]
+# every = 60
+# sites = [
+#   { name = "Home lab", url = "https://lab.example.com/health", lat = 9.03, lon = 38.74 },
+# ]

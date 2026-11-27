@@ -1,0 +1,7 @@
+{
+  "id": "status-pet",
+  "name": "Status Pet",
+  "version": "0.1.0",
+  "entry": "dist/index.js",
+  "permissions": ["provider:cpu", "provider:power", "provider:media"]
+}

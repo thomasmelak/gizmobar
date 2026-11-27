@@ -103,6 +103,52 @@ Colors are hex (`"#ff5c7a"`) or theme tokens (`"theme.accent"`,
 `ctx.config` is the `[plugins.<id>]` table from config.toml.
 `setTimeout`/`setInterval` work as usual.
 
+## 3D scenes
+
+`ui.scene` puts a model on the bar. Drop a `.glb`, `.gltf` or `.usdz` in
+your plugin folder and point at it:
+
+```ts
+ui.scene({
+  model: "models/gizmo-bot.glb",
+  size: 28,                                   // clamped to the bar height
+  look: "toon",                               // toon | pbr | unlit
+  animation: { clip: "dance", loop: true, blend: 0.3 },
+  parts: { Antenna: { color: "theme.accent" } },
+  caption: "Dancing",                         // tooltip, and under the popover model
+  onClick: () => ctx.scene.play("wave", { once: true }),
+  popover: { size: 240, orbit: true },        // a bigger copy you can drag around
+});
+```
+
+- **Clips**: glTF animations play by name. Changing `animation.clip`
+  cross-fades over `blend` seconds. `ctx.scene.play(clip, { once })` plays
+  one on top and returns to the current clip; `ctx.scene.clips()` lists
+  them once the model has loaded.
+- **Parts**: `parts` and `ctx.scene.set(name, { color, visible, rotation })`
+  change glTF nodes by name. `ctx.scene.on("click", (part) => ...)` tells
+  you which node was clicked.
+- **Looks**: `toon` is flat color with an outline (the default; the outline needs macOS 15), `pbr` uses
+  the model's own materials and lighting, `unlit` is flat color only.
+- **Cost**: a scene only renders while it animates or you drag it. When it
+  is still, it is swapped for a snapshot, so a resting model costs nothing.
+- `popover` can also be a function that returns your own widget tree,
+  like any pill.
+
+`ui.globe` is the built-in dot globe, with the day side lit from the sun's
+real position:
+
+```ts
+ui.globe({
+  size: 22,
+  spin: "slow",                               // degrees per second, or slow | medium | fast
+  markers: [{ lat: 9.03, lon: 38.74, color: "theme.good", label: "Addis", pulse: true }],
+});
+```
+
+Without a plugin, add `"globe"` to a `[layout]` list for a globe that marks
+where you are and your `[[clock.world]]` zones.
+
 ## Guard rails
 
 - **Permissions**: nothing beyond the list above is reachable; there is no
@@ -118,6 +164,11 @@ Colors are hex (`"#ff5c7a"`) or theme tokens (`"theme.accent"`,
 
 ## Examples
 
-`examples/gizmobar/plugins/` has two built-ins rewritten as plugins:
-`net-speed` (providers, graphs, popover) and `theme-picker` (config,
-storage, requests).
+`examples/gizmobar/plugins/`:
+
+- `net-speed`: the built-in network widget as a plugin (providers, graphs, popover)
+- `theme-picker`: config, storage and requests
+- `status-pet`: a robot model that sleeps, dances, runs or idles with the
+  battery, music and CPU (`ui.scene`, clips, click to wave)
+- `uptime-globe`: pings your sites and pins them on the globe (`ctx.fetch`,
+  timers, `ui.globe`)

@@ -82,7 +82,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.pluginLog.append("\(id) [\(level)] \(msg)")
             if let n = self?.pluginLog.count, n > 200 { self?.pluginLog.removeFirst(n - 200) }
         }
+        var sceneSeq = 0
+        manager.onLoaded = { id, dir in store.plugins.directories[id] = dir }
+        manager.onScene = { id, kind, payload in
+            sceneSeq += 1
+            store.plugins.sceneCommands[id] = SceneCommand(seq: sceneSeq, kind: kind, payload: payload)
+        }
         store.plugins.invoke = { [weak manager] id, cb, arg in manager?.invoke(id, cb, arg) }
+        store.plugins.dispatch = { [weak manager] id, topic, payload in manager?.dispatch(id, topic: topic, payload: payload) }
         store.plugins.popover = { [weak manager] id, cb in await manager?.popover(id, cb) ?? .error("gone") }
         manager.start(theme: store.theme, settings: config.plugins)
         plugins = manager

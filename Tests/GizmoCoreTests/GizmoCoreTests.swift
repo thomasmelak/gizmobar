@@ -438,6 +438,18 @@ struct ConfigEditorTests {
         let out = ConfigEditor.set("style", ConfigEditor.string("system"), table: "icons", in: "theme = \"nord\"\n")
         #expect(try GizmoConfig.parse(out).icons.style == .system)
     }
+
+    @Test func updateKeepsSymlinks() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gizmo-link-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let real = dir.appendingPathComponent("real.toml"), link = dir.appendingPathComponent("config.toml")
+        try "theme = \"gizmo\"\n".write(to: real, atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: real)
+        try ConfigEditor.update("theme", ConfigEditor.string("nord"), file: link)
+        #expect(try FileManager.default.destinationOfSymbolicLink(atPath: link.path) == real.path)
+        #expect(try String(contentsOf: real, encoding: .utf8).contains("theme = \"nord\""))
+    }
 }
 
 @Suite("Themes")

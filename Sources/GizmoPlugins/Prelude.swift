@@ -49,8 +49,8 @@ enum Prelude {
     slider: (value, onChange) => ({ kind: "slider", value, onChange }),
     toggle: (value, onChange) => ({ kind: "toggle", value, onChange }),
     button: (label, onClick, icon) => ({ kind: "button", label, onClick, icon }),
-    scene: (scene) => ({ kind: "scene", scene, onClick: scene.onClick, popover: scene.popover }),
-    globe: (o) => ({ kind: "scene", scene: { builtin: "globe", ...o }, onClick: o.onClick, popover: o.popover }),
+    scene: (scene) => ({ kind: "scene", scene, onClick: scene.onClick, popover: typeof scene.popover === "function" ? scene.popover : undefined }),
+    globe: (o) => ({ kind: "scene", scene: { builtin: "globe", ...o }, onClick: o.onClick, popover: typeof o.popover === "function" ? o.popover : undefined }),
     spacer: () => ({ kind: "spacer" }),
   };
   const fmt = {
@@ -177,9 +177,11 @@ enum Prelude {
         play: (clip, o) => host.emit("scene.play", JSON.stringify({ clip, ...(o ?? {}) })),
         set: (part, o) => host.emit("scene.set", JSON.stringify({ part, ...o })),
         on: (event, cb) => ctx.on("scene." + event, cb),
-        clips: () => JSON.parse(host.sceneClips() ?? "[]"),
+        clips: () => sceneClips.slice(),
       },
     };
+    let sceneClips = [];
+    ctx.on("scene.loaded", (p) => { sceneClips = (p && p.clips) || []; });
     render = def.setup(ctx);
     if (typeof render !== "function") throw new Error("setup(ctx) must return a render function");
   };

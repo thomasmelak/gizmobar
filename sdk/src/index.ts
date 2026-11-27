@@ -51,22 +51,29 @@ export interface SceneOptions {
   /** A .glb/.gltf/.usdz in the plugin folder, or a built-in scene. */
   model?: string;
   builtin?: "globe";
-  animation?: string;
+  /** A clip name, or a clip with looping and cross-fade seconds. */
+  animation?: string | { clip: string; loop?: boolean; blend?: number };
   look?: "toon" | "pbr" | "unlit";
+  /** Points; clamped to the bar height on the bar. */
   size?: number;
-  spin?: number;
+  /** Degrees per second, or "slow" | "medium" | "fast". */
+  spin?: number | "slow" | "medium" | "fast";
+  camera?: { yaw?: number };
+  /** Per-node overrides by glTF node name. */
+  parts?: Record<string, { visible?: boolean; color?: Color; rotation?: [number, number, number] }>;
+  caption?: string;
   onClick?: () => void;
-  popover?: () => Node;
-  [key: string]: unknown;
+  /** A popover of your own, or a bigger copy of the model you can orbit. */
+  popover?: (() => Node) | { size?: number; orbit?: boolean };
 }
 
 export interface GlobeOptions {
   markers?: { lat: number; lon: number; color?: Color; pulse?: boolean; label?: string }[];
-  arcs?: { from: [number, number]; to: [number, number]; color?: Color }[];
-  spin?: number;
+  spin?: number | "slow" | "medium" | "fast";
   size?: number;
+  caption?: string;
   onClick?: () => void;
-  popover?: () => Node;
+  popover?: (() => Node) | { size?: number; orbit?: boolean };
 }
 
 export interface SceneControl {
@@ -147,8 +154,8 @@ export const ui = {
   slider: (value: number, onChange: (v: number) => void): Node => ({ kind: "slider", value, onChange }),
   toggle: (value: boolean, onChange: (v: boolean) => void): Node => ({ kind: "toggle", value, onChange }),
   button: (label: string, onClick: () => void, icon?: string): Node => ({ kind: "button", label, onClick, icon }),
-  scene: (scene: SceneOptions): Node => ({ kind: "scene", scene, onClick: scene.onClick, popover: scene.popover }),
-  globe: (o: GlobeOptions): Node => ({ kind: "scene", scene: { builtin: "globe", ...o }, onClick: o.onClick, popover: o.popover }),
+  scene: (scene: SceneOptions): Node => ({ kind: "scene", scene, onClick: scene.onClick, popover: typeof scene.popover === "function" ? scene.popover : undefined }),
+  globe: (o: GlobeOptions): Node => ({ kind: "scene", scene: { builtin: "globe", ...o }, onClick: o.onClick, popover: typeof o.popover === "function" ? o.popover : undefined }),
   spacer: (): Node => ({ kind: "spacer" }),
 };
 
