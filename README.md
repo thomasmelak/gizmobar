@@ -184,3 +184,7 @@ Push a tag like `v0.1.0`, or run the **Release** workflow from the Actions tab w
 It runs the tests, builds a universal app, signs it once in CI, and publishes `Gizmobar.zip`
 and `Gizmobar.dmg` to a GitHub release. The Homebrew cask, the one-line installer and the download
 link above always point at the latest release, so nothing else needs updating.
+
+Releases are signed with a self-signed certificate stored in the `SIGNING_CERT_P12` and
+`SIGNING_CERT_PASSWORD` secrets, so privacy grants survive updates. Create it once with
+`scripts/make-signing-cert.sh`. Without the secrets the app is ad-hoc signed.
