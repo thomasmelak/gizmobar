@@ -9,7 +9,7 @@ public enum ConfigEditor {
     public static func set(_ key: String, _ value: String, table: String? = nil, in text: String) -> String {
         var lines = text.components(separatedBy: "\n")
         if lines.last == "" { lines.removeLast() }
-        let line = "\(key) = \(value)"
+        let line = "\(bareKey(key)) = \(value)"
 
         // The section's range: from after its header to the next header.
         var start = 0
@@ -36,11 +36,33 @@ public enum ConfigEditor {
         return lines.joined(separator: "\n") + "\n"
     }
 
-    /// Edits the file in place (creating it when missing).
-    public static func update(_ key: String, _ value: String, table: String? = nil, file: URL = GizmoPaths.configFile) throws {
+    /// Removes `key` from `[table]` (nil: the top level). No-op when absent.
+    public static func remove(_ key: String, table: String? = nil, in text: String) -> String {
+        var lines = text.components(separatedBy: "\n")
+        var start = 0
+        if let table {
+            guard let header = lines.firstIndex(where: { tableName($0) == table }) else { return text }
+            start = header + 1
+        }
+        let end = lines[start...].firstIndex(where: { tableName($0) != nil }) ?? lines.count
+        guard let i = lines[start..<end].firstIndex(where: { keyName($0) == key }) else { return text }
+        lines.remove(at: i)
+        return lines.joined(separator: "\n")
+    }
+
+    /// Edits the file in place (creating it when missing). A nil `value`
+    /// removes the key.
+    public static func update(_ key: String, _ value: String?, table: String? = nil, file: URL = GizmoPaths.configFile) throws {
         let text = (try? String(contentsOf: file, encoding: .utf8)) ?? ""
         try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try set(key, value, table: table, in: text).write(to: file, atomically: true, encoding: .utf8)
+        let out = value.map { set(key, $0, table: table, in: text) } ?? remove(key, table: table, in: text)
+        try out.write(to: file, atomically: true, encoding: .utf8)
+    }
+
+    /// Quotes keys that aren't bare TOML keys, like bundle IDs with dots.
+    static func bareKey(_ key: String) -> String {
+        let bare = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")
+        return key.unicodeScalars.allSatisfy(bare.contains) ? key : string(key)
     }
 
     /// A quoted TOML string.

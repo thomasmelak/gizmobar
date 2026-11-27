@@ -452,3 +452,41 @@ struct ThemeCatalogTests {
         #expect(Theme.load(named: "missing", in: dir) == .gizmo)
     }
 }
+
+@Suite("IconMenu")
+struct IconMenuTests {
+    @Test func perAppOverrideRoundTrip() throws {
+        var text = "[icons]\nstyle = \"custom\"\n"
+        text = ConfigEditor.set("com.spotify.client", "{ style = \"system\" }", table: "icons.apps", in: text)
+        #expect(text.contains("\"com.spotify.client\" = { style = \"system\" }"))
+        #expect(try GizmoConfig.parse(text).icons.apps["com.spotify.client"]?.style == .system)
+        text = ConfigEditor.set("com.spotify.client", "{ file = \"~/s.svg\" }", table: "icons.apps", in: text)
+        #expect(try GizmoConfig.parse(text).icons.apps["com.spotify.client"]?.file == "~/s.svg")
+        text = ConfigEditor.remove("com.spotify.client", table: "icons.apps", in: text)
+        #expect(try GizmoConfig.parse(text).icons.apps.isEmpty)
+    }
+
+    @Test func customOverrideBeatsSystemStyle() {
+        let pack = IconPack(manifest: .init(id: "p", name: "p", kind: .svg), root: URL(fileURLWithPath: "/p"), svgBundleIDs: ["a.b"])
+        var s = IconSettings(style: .system, customPack: "p", packs: [])
+        #expect(IconResolver(settings: s, packs: ["p": pack]).resolve(bundleID: "a.b", appName: "A").source == "system-style")
+        s.apps["a.b"] = AppIconOverride(style: .custom)
+        #expect(IconResolver(settings: s, packs: ["p": pack]).resolve(bundleID: "a.b", appName: "A").source == "p")
+    }
+}
+
+@Suite("AppUsage")
+struct AppUsageTests {
+    @Test func creditsTimeAndRanks() {
+        var u = AppUsage()
+        let t0 = Date(timeIntervalSince1970: 1000)
+        u.activate("a", name: "A", at: t0)
+        u.activate("b", name: "B", at: t0.addingTimeInterval(300))
+        u.activate("a", name: "A", at: t0.addingTimeInterval(360))
+        u.credit(until: t0.addingTimeInterval(10_000))
+        #expect(u.apps["a"]?.activations == 2)
+        #expect(u.apps["b"]?.seconds == 60)
+        #expect(u.apps["a"]?.seconds == 300 + 3600)
+        #expect(u.ranked.map(\.bundleID) == ["a", "b"])
+    }
+}

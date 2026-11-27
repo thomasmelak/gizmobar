@@ -12,7 +12,7 @@ USAGE
   gizmo trigger <topic> [k=v ...] push an event onto the bar's bus
   gizmo reload                    reload config, theme and icon packs
   gizmo state                     print what the bar currently shows
-  gizmo icons missing             open apps the icon packs don't cover
+  gizmo icons missing             apps the icon packs don't cover, most used first
   gizmo icons init <id>           start a custom icon pack in ~/.config/gizmobar/icon-packs
   gizmo version
 

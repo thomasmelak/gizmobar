@@ -49,7 +49,8 @@ public struct IconResolver: Sendable {
             }
         }
 
-        if settings.style == .system, !bundleID.isEmpty {
+        // `style = "custom"` on one app keeps its pack icon when the bar shows system icons.
+        if settings.style == .system, settings.apps[bundleID]?.style != .custom, !bundleID.isEmpty {
             return .init(choice: .system(bundleID: bundleID, mono: false), source: "system-style")
         }
 

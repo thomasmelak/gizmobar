@@ -39,7 +39,7 @@ gizmo ping
 gizmo trigger vpn.status up=true    # push your own events onto the bus
 gizmo reload                        # re-read config, theme and icon packs
 gizmo state
-gizmo icons missing                 # open apps the icon packs don't cover
+gizmo icons missing                 # apps the icon packs don't cover, most used first
 gizmo icons init my-icons           # start a custom icon pack
 ```
 

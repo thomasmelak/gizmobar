@@ -71,6 +71,10 @@ public enum BarRequest {
     public static func setContrast(display: UInt32, _ v: Int) -> String { "displays.contrast:\(display),\(v)" }
     public static let refreshThemes = "theme.refresh"
     public static let toggleIconStyle = "icons.style.toggle"
+    public static let openIconPacks = "icons.folder.open"
+    public static func setAppIconStyle(_ bundleID: String, _ style: IconSettings.Style) -> String { "icons.app.style:\(bundleID),\(style.rawValue)" }
+    public static func chooseAppIconFile(_ bundleID: String) -> String { "icons.app.file:\(bundleID)" }
+    public static func resetAppIcon(_ bundleID: String) -> String { "icons.app.reset:\(bundleID)" }
     public static func setTheme(_ id: String) -> String { "theme.set:\(id)" }
     public static func setWarmth(_ v: Int) -> String { "displays.warmth:\(v)" }
 }

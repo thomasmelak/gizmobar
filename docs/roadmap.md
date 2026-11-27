@@ -26,12 +26,10 @@ reaches parity.
 - [x] Battery: Low Power Mode and No Sleep switches, health, charge limit; Sound: volume slider, mute, output devices
 - [x] Displays: brightness (built-in, DDC, software dimming), contrast over DDC, Night Shift
 - [x] Theme picker: 12 bundled themes, custom/system icons switch, saved to config.toml
-
-
-CPU/GPU, memory, disk, network, power, audio, sensors; display control for
-built-in (DisplayServices) and external monitors (DDC/CI, software dimming
-fallback); popovers as child panels; first Tefer Line icons; right-click
-icon menu; `gizmo icons missing` ranked by use.
+- [x] First Tefer Line icons (the 27 apps with brand colors)
+- [x] Right-click icon menu: custom pack, system icon, choose file, reset
+- [x] `gizmo icons missing` ranked by use (time in front, activations)
+- [ ] Verify every widget and popover on the Mac against SketchyBar
 
 ## Phase 3: now playing
 
