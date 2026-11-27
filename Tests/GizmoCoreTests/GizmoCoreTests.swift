@@ -272,3 +272,221 @@ import Testing
         #expect(!m.allows("exec"))
     }
 }
+
+@Suite struct MetricsTests {
+    @Test func speedLabelsMatchNetworkSh() {
+        #expect(Units.speed(512) == "512 B/s")
+        #expect(Units.speed(8_000) == "8.0 KB/s")
+        #expect(Units.speed(1_234_567) == "1.2 MB/s")
+        #expect(Units.speed(-5) == "0 B/s")
+    }
+
+    @Test func sizes() {
+        #expect(Units.size(512 * 1_048_576) == "512 MB")
+        #expect(Units.size(1536 * 1_048_576) == "1.5 GB")
+        #expect(Units.usedOfTotal(12 * 1_073_741_824, 16 * 1_073_741_824) == "12.0 / 16 GB")
+        #expect(Units.percent(0.256) == "26%")
+    }
+
+    @Test func historyFillsThenPushesOnlyChanges() {
+        var h = History(capacity: 4)
+        h.push(0.5)
+        #expect(h.values == [0.5, 0.5, 0.5, 0.5])
+        h.push(0.5)
+        #expect(h.values == [0.5, 0.5, 0.5, 0.5])
+        h.push(0.7)
+        h.push(0.9)
+        #expect(h.values == [0.5, 0.5, 0.7, 0.9])
+    }
+
+    @Test func signalQualityAndConnectionLabel() {
+        var c = Connectivity(kind: .wifi, wifiPower: true, rssi: -60, channel: 36, band: "5 GHz")
+        #expect(c.signal == .good)
+        #expect(c.connectionLabel == "5 GHz · channel 36")
+        c.rssi = -80
+        #expect(c.signal == .weak)
+        c.wifiPower = false
+        #expect(c.signal == nil)
+        #expect(c.connectionLabel == "Off")
+        #expect(Connectivity(kind: .ethernet).connectionLabel == "Ethernet")
+        #expect(Connectivity(wifiPower: true).connectionLabel == "Not connected")
+    }
+
+    @Test func bluetoothKinds() {
+        #expect(BluetoothDevice.kind(minorType: "Headphones") == .headphones)
+        #expect(BluetoothDevice.kind(minorType: "Mouse") == .mouse)
+        #expect(BluetoothDevice.kind(minorType: nil) == .other)
+    }
+
+    @Test func snapshotKeepsChartHistory() {
+        var s = BarSnapshot()
+        let stats = SystemStats(cpu: 0.25, gpu: 0.1, temperature: 50, ramUsed: 8, ramTotal: 16, swapUsed: 0, swapTotal: 0)
+        s.apply(BarEvent(topic: Topic.systemStats, payload: JSONValue(encoding: stats)))
+        #expect(s.system == stats)
+        #expect(s.cpuHistory.values.count == 56)
+        #expect(s.temperatureHistory.values.last == 0.5)
+        #expect(s.system?.ramFraction == 0.5)
+        #expect(s.system?.swapInUse == false)
+
+        s.apply(BarEvent(topic: Topic.networkSpeed, payload: JSONValue(encoding: NetworkSpeed(download: 100, upload: 5, interface: "en0"))))
+        #expect(s.network.interface == "en0")
+    }
+}
+
+@Suite struct PowerAudioTests {
+    @Test func batteryLabelsMatchBatteryInfoSh() {
+        var b = BatteryStatus(percent: 64, minutesToEmpty: 185, rateMilliwatts: -7400)
+        #expect(b.stateLabel == "On battery")
+        #expect(b.timeLabel == "3:05 left")
+        #expect(b.drawLabel == "7.4 W")
+        #expect(b.rateLabel == "-7.4 W")
+        #expect(b.tone == .normal)
+        #expect(b.symbol == "battery.75percent")
+
+        b.minutesToEmpty = 65535
+        #expect(b.timeLabel == "estimating")
+
+        b = BatteryStatus(percent: 80, external: true, charging: true, minutesToFull: 42, rateMilliwatts: 25000, loadMilliwatts: 9000)
+        #expect(b.stateLabel == "Charging")
+        #expect(b.timeLabel == "0:42 to full")
+        #expect(b.drawLabel == "9.0 W")
+        #expect(b.rateLabel == "+25.0 W")
+        #expect(b.tone == .charging)
+
+        #expect(BatteryStatus(percent: 100, external: true, full: true).stateLabel == "Charged")
+        #expect(BatteryStatus(percent: 100, external: true, full: true).timeLabel == "-")
+        #expect(BatteryStatus(percent: 15).tone == .low)
+        #expect(BatteryStatus(percent: 50, lowPower: true).tone == .saver)
+    }
+
+    @Test func audioSymbolsAndDeviceKinds() {
+        #expect(AudioStatus(volume: 70, muted: false).symbol == "speaker.wave.3")
+        #expect(AudioStatus(volume: 40, muted: false).symbol == "speaker.wave.2")
+        #expect(AudioStatus(volume: 10, muted: false).symbol == "speaker.wave.1")
+        #expect(AudioStatus(volume: 70, muted: true).symbol == "speaker.slash")
+        #expect(AudioDevice(id: 1, name: "AirPods Pro", isCurrent: false).kind == .headphones)
+        #expect(AudioDevice(id: 2, name: "DELL U2723QE", isCurrent: false).kind == .display)
+        #expect(AudioDevice(id: 3, name: "MacBook Pro Speakers", isCurrent: true).kind == .speaker)
+    }
+}
+
+@Suite("Displays")
+struct DisplaysTests {
+    @Test func ddcPackets() {
+        #expect(DDC.getPacket(DDC.luminance) == [0x82, 0x01, 0x10, 0xFD])
+        #expect(DDC.setPacket(DDC.luminance, 50) == [0x84, 0x03, 0x10, 0x00, 0x32, 0x9A])
+    }
+
+    @Test func ddcReply() {
+        var r: [UInt8] = [0x6E, 0x88, 0x02, 0x00, 0x10, 0x00, 0x00, 0x64, 0x00, 0x2A]
+        r.append(r.reduce(0x50, ^))
+        let parsed = DDC.parseReply(r, vcp: DDC.luminance)
+        #expect(parsed?.current == 42)
+        #expect(parsed?.max == 100)
+        #expect(DDC.parseReply(r, vcp: DDC.contrast) == nil)
+        r[10] ^= 0xFF
+        #expect(DDC.parseReply(r, vcp: DDC.luminance) == nil)
+    }
+
+    @Test func mainDisplay() {
+        let s = DisplaysStatus(displays: [
+            DisplayState(id: 1, name: "Built-in", isBuiltIn: true, isMain: false, control: .builtin, brightness: 70),
+            DisplayState(id: 2, name: "LG", isBuiltIn: false, isMain: true, control: .ddc, brightness: 40, contrast: 75),
+        ], nightShift: false, warmth: 50)
+        #expect(s.main?.id == 2)
+        var snap = BarSnapshot()
+        snap.apply(BarEvent(topic: Topic.displays, payload: JSONValue(encoding: s)))
+        #expect(snap.displays == s)
+    }
+}
+
+@Suite("ConfigEditor")
+struct ConfigEditorTests {
+    let sample = """
+    # Gizmobar config
+    theme = "gizmo"   # see themes/
+
+    [icons]
+    custom_pack = "tefer-line"
+
+    [bar]
+    height = 32
+
+    """
+
+    @Test func replacesTopLevelKeepingComment() throws {
+        let out = ConfigEditor.set("theme", ConfigEditor.string("nord"), in: sample)
+        #expect(out.contains("theme = \"nord\"  # see themes/"))
+        #expect(try GizmoConfig.parse(out).theme == "nord")
+    }
+
+    @Test func insertsTopLevelAfterLeadingComments() throws {
+        let out = ConfigEditor.set("theme", ConfigEditor.string("nord"), in: "# hi\n\n[bar]\nheight = 30\n")
+        #expect(out.hasPrefix("# hi\n\ntheme = \"nord\"\n[bar]"))
+        #expect(try GizmoConfig.parse(out).bar.height == 30)
+    }
+
+    @Test func setsInTable() throws {
+        let out = ConfigEditor.set("style", ConfigEditor.string("system"), table: "icons", in: sample)
+        let c = try GizmoConfig.parse(out)
+        #expect(c.icons.style == .system)
+        #expect(c.icons.customPack == "tefer-line")
+        #expect(c.bar.height == 32)
+    }
+
+    @Test func addsMissingTable() throws {
+        let out = ConfigEditor.set("style", ConfigEditor.string("system"), table: "icons", in: "theme = \"nord\"\n")
+        #expect(try GizmoConfig.parse(out).icons.style == .system)
+    }
+}
+
+@Suite("Themes")
+struct ThemeCatalogTests {
+    @Test func bundledThemesParse() throws {
+        let dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("themes")
+        let entries = Theme.catalog(in: [dir])
+        #expect(entries.first?.id == "gizmo")
+        #expect(entries.count == 12)
+        #expect(Theme.load(named: "nord", in: dir).accent == "#88c0d0")
+        #expect(Theme.load(named: "missing", in: dir) == .gizmo)
+    }
+}
+
+@Suite("IconMenu")
+struct IconMenuTests {
+    @Test func perAppOverrideRoundTrip() throws {
+        var text = "[icons]\nstyle = \"custom\"\n"
+        text = ConfigEditor.set("com.spotify.client", "{ style = \"system\" }", table: "icons.apps", in: text)
+        #expect(text.contains("\"com.spotify.client\" = { style = \"system\" }"))
+        #expect(try GizmoConfig.parse(text).icons.apps["com.spotify.client"]?.style == .system)
+        text = ConfigEditor.set("com.spotify.client", "{ file = \"~/s.svg\" }", table: "icons.apps", in: text)
+        #expect(try GizmoConfig.parse(text).icons.apps["com.spotify.client"]?.file == "~/s.svg")
+        text = ConfigEditor.remove("com.spotify.client", table: "icons.apps", in: text)
+        #expect(try GizmoConfig.parse(text).icons.apps.isEmpty)
+    }
+
+    @Test func customOverrideBeatsSystemStyle() {
+        let pack = IconPack(manifest: .init(id: "p", name: "p", kind: .svg), root: URL(fileURLWithPath: "/p"), svgBundleIDs: ["a.b"])
+        var s = IconSettings(style: .system, customPack: "p", packs: [])
+        #expect(IconResolver(settings: s, packs: ["p": pack]).resolve(bundleID: "a.b", appName: "A").source == "system-style")
+        s.apps["a.b"] = AppIconOverride(style: .custom)
+        #expect(IconResolver(settings: s, packs: ["p": pack]).resolve(bundleID: "a.b", appName: "A").source == "p")
+    }
+}
+
+@Suite("AppUsage")
+struct AppUsageTests {
+    @Test func creditsTimeAndRanks() {
+        var u = AppUsage()
+        let t0 = Date(timeIntervalSince1970: 1000)
+        u.activate("a", name: "A", at: t0)
+        u.activate("b", name: "B", at: t0.addingTimeInterval(300))
+        u.activate("a", name: "A", at: t0.addingTimeInterval(360))
+        u.credit(until: t0.addingTimeInterval(10_000))
+        #expect(u.apps["a"]?.activations == 2)
+        #expect(u.apps["b"]?.seconds.rounded() == 60)
+        #expect(u.apps["a"]?.seconds.rounded() == 3900)
+        #expect(u.ranked.map(\.bundleID) == ["a", "b"])
+    }
+}

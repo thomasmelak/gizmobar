@@ -1,0 +1,21 @@
+# Rosé, ported from the SketchyBar themes/rose-pine.sh.
+# Backgrounds use the glass alphas from the Gizmo theme; other keys fall
+# back to Gizmo (corner radius, font).
+name = "Rosé"
+item_bg = "#19172499"
+item_border = "#403d52"
+icon = "#c4a7e7"
+label = "#e0def4"
+ws_bg = "#19172473"
+ws_icon = "#6e6a86"
+ws_focus_bg = "#26233a99"
+ws_focus_border = "#ebbcba"
+ws_focus_icon = "#ebbcba"
+accent = "#ebbcba"
+popup_bg = "#191724b8"
+popup_border = "#ebbcba"
+net_down = "#9ccfd8"
+net_up = "#31748f"
+good = "#9ccfd8"
+warn = "#f6c177"
+bad = "#eb6f92"

@@ -1,0 +1,21 @@
+# Everforest, ported from the SketchyBar themes/everforest-dark.sh.
+# Backgrounds use the glass alphas from the Gizmo theme; other keys fall
+# back to Gizmo (corner radius, font).
+name = "Everforest"
+item_bg = "#2d353b99"
+item_border = "#475258"
+icon = "#a7c080"
+label = "#d3c6aa"
+ws_bg = "#2d353b73"
+ws_icon = "#859289"
+ws_focus_bg = "#3d484d99"
+ws_focus_border = "#a7c080"
+ws_focus_icon = "#a7c080"
+accent = "#a7c080"
+popup_bg = "#2d353bb8"
+popup_border = "#a7c080"
+net_down = "#a7c080"
+net_up = "#7fbbb3"
+good = "#a7c080"
+warn = "#dbbc7f"
+bad = "#e67e80"

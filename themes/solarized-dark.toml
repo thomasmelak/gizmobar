@@ -1,0 +1,21 @@
+# Solarized, ported from the SketchyBar themes/solarized-dark.sh.
+# Backgrounds use the glass alphas from the Gizmo theme; other keys fall
+# back to Gizmo (corner radius, font).
+name = "Solarized"
+item_bg = "#002b3699"
+item_border = "#094959"
+icon = "#268bd2"
+label = "#93a1a1"
+ws_bg = "#002b3673"
+ws_icon = "#657b83"
+ws_focus_bg = "#07364299"
+ws_focus_border = "#b58900"
+ws_focus_icon = "#b58900"
+accent = "#b58900"
+popup_bg = "#002b36b8"
+popup_border = "#b58900"
+net_down = "#859900"
+net_up = "#2aa198"
+good = "#859900"
+warn = "#cb4b16"
+bad = "#dc322f"

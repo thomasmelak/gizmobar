@@ -1,0 +1,21 @@
+# Kanagawa, ported from the SketchyBar themes/kanagawa.sh.
+# Backgrounds use the glass alphas from the Gizmo theme; other keys fall
+# back to Gizmo (corner radius, font).
+name = "Kanagawa"
+item_bg = "#1f1f2899"
+item_border = "#363646"
+icon = "#7e9cd8"
+label = "#dcd7ba"
+ws_bg = "#1f1f2873"
+ws_icon = "#727169"
+ws_focus_bg = "#2a2a3799"
+ws_focus_border = "#e6c384"
+ws_focus_icon = "#e6c384"
+accent = "#e6c384"
+popup_bg = "#1f1f28b8"
+popup_border = "#e6c384"
+net_down = "#98bb6c"
+net_up = "#7fb4ca"
+good = "#98bb6c"
+warn = "#ff9e3b"
+bad = "#e82424"

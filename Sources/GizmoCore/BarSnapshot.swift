@@ -47,6 +47,16 @@ public struct BarSnapshot: Sendable, Equatable {
     public var windows: [WindowInfo] = []
     public var frontApp: AppRef?
     public var now: Date = .now
+    public var system: SystemStats?
+    public var cpuHistory = History()
+    public var gpuHistory = History()
+    public var temperatureHistory = History()
+    public var swapHistory = History()
+    public var network: NetworkSpeed = .offline
+    public var connectivity: Connectivity?
+    public var battery: BatteryStatus?
+    public var audio: AudioStatus?
+    public var displays: DisplaysStatus?
     /// Last payload per external `gizmo trigger` topic.
     public var triggers: [String: JSONValue] = [:]
 
@@ -77,6 +87,30 @@ public struct BarSnapshot: Sendable, Equatable {
             if let name = event.payload["name"]?.string {
                 frontApp = AppRef(bundleID: event.payload["bundleId"]?.string, name: name)
             }
+
+        case Topic.systemStats:
+            if let s = event.payload.decode(SystemStats.self) {
+                system = s
+                cpuHistory.push(s.cpu)
+                if let g = s.gpu { gpuHistory.push(g) }
+                if let t = s.temperatureFraction { temperatureHistory.push(t) }
+                swapHistory.push(s.swapFraction)
+            }
+
+        case Topic.networkSpeed:
+            if let n = event.payload.decode(NetworkSpeed.self) { network = n }
+
+        case Topic.networkConnectivity:
+            if let c = event.payload.decode(Connectivity.self) { connectivity = c }
+
+        case Topic.battery:
+            battery = event.payload.decode(BatteryStatus.self)
+
+        case Topic.audio:
+            audio = event.payload.decode(AudioStatus.self)
+
+        case Topic.displays:
+            displays = event.payload.decode(DisplaysStatus.self)
 
         case Topic.clockTick:
             if let t = event.payload["epoch"], case .number(let s) = t { now = Date(timeIntervalSince1970: s) }

@@ -1,0 +1,21 @@
+# Catppuccin, ported from the SketchyBar themes/catppuccin-mocha.sh.
+# Backgrounds use the glass alphas from the Gizmo theme; other keys fall
+# back to Gizmo (corner radius, font).
+name = "Catppuccin"
+item_bg = "#1e1e2e99"
+item_border = "#45475a"
+icon = "#cba6f7"
+label = "#cdd6f4"
+ws_bg = "#1e1e2e73"
+ws_icon = "#7f849c"
+ws_focus_bg = "#45475a99"
+ws_focus_border = "#cba6f7"
+ws_focus_icon = "#cba6f7"
+accent = "#cba6f7"
+popup_bg = "#1e1e2eb8"
+popup_border = "#cba6f7"
+net_down = "#a6e3a1"
+net_up = "#89b4fa"
+good = "#a6e3a1"
+warn = "#f9e2af"
+bad = "#f38ba8"

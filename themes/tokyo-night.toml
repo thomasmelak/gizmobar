@@ -1,0 +1,21 @@
+# Tokyo, ported from the SketchyBar themes/tokyo-night.sh.
+# Backgrounds use the glass alphas from the Gizmo theme; other keys fall
+# back to Gizmo (corner radius, font).
+name = "Tokyo"
+item_bg = "#1a1b2699"
+item_border = "#3b4261"
+icon = "#7aa2f7"
+label = "#c0caf5"
+ws_bg = "#1a1b2673"
+ws_icon = "#565f89"
+ws_focus_bg = "#292e4299"
+ws_focus_border = "#7aa2f7"
+ws_focus_icon = "#7aa2f7"
+accent = "#7aa2f7"
+popup_bg = "#1a1b26b8"
+popup_border = "#7aa2f7"
+net_down = "#9ece6a"
+net_up = "#7dcfff"
+good = "#9ece6a"
+warn = "#e0af68"
+bad = "#f7768e"

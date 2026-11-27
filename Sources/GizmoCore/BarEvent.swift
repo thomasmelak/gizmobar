@@ -36,6 +36,12 @@ public enum Topic {
     public static let aerospaceWindowDetected = "aerospace.window-detected"
     public static let appsFront = "apps.front"
     public static let clockTick = "clock.tick"
+    public static let systemStats = "system.stats"
+    public static let networkSpeed = "network.speed"
+    public static let networkConnectivity = "network.connectivity"
+    public static let battery = "power.battery"
+    public static let audio = "audio.output"
+    public static let displays = "displays.status"
     public static let displaysChanged = "displays.changed"
     public static let configReloaded = "gizmobar.config-reloaded"
 }

@@ -1,5 +1,6 @@
 import AppKit
 import ServiceManagement
+import UniformTypeIdentifiers
 import GizmoCore
 import GizmoIPC
 import GizmoProviders
@@ -12,6 +13,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panels: PanelManager!
     private var server: IPCServer?
     private var aerospace: AeroSpaceProvider!
+    private var network: NetworkProvider!
+    private var battery: BatteryProvider!
+    private var audio: AudioProvider!
+    private var displays: DisplaysProvider!
+    private var apps: AppsProvider!
     private var providers: [any Provider] = []
     private var watcher: ConfigWatcher?
 
@@ -20,9 +26,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let config = loadConfig()
         store = BarStore(config: config, theme: Theme.load(named: config.theme), icons: makeResolver(config))
         store.attach(to: bus)
+        store.themes = Theme.catalog()
 
         aerospace = AeroSpaceProvider(settings: config.aerospace)
-        providers = [ClockProvider(), AppsProvider(), aerospace]
+        network = NetworkProvider()
+        battery = BatteryProvider()
+        audio = AudioProvider()
+        displays = DisplaysProvider()
+        apps = AppsProvider()
+        providers = [ClockProvider(), apps, aerospace, SystemProvider(), network, battery, audio, displays]
+        store.onRequest = { [weak self] name in self?.handleRequest(name) }
         store.onFocusWorkspace = { [aerospace] ws in
             Task { await aerospace?.focus(workspace: ws) }
         }
@@ -44,12 +57,101 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         watcher?.start()
     }
 
+    /// Requests from widgets, routed to the provider that owns them.
+    private func handleRequest(_ name: String) {
+        let (action, arg) = name.split(separator: ":", maxSplits: 1).map(String.init).splitFirst()
+        switch action {
+        case BarRequest.refreshThemes:
+            store.themes = Theme.catalog()
+            return
+        case "theme.set":
+            guard let id = arg else { return }
+            saveConfig("theme", ConfigEditor.string(id))
+            return
+        case BarRequest.toggleIconStyle:
+            let next: IconSettings.Style = store.config.icons.style == .custom ? .system : .custom
+            saveConfig("style", ConfigEditor.string(next.rawValue), table: "icons")
+            return
+        case "icons.app.style":
+            let parts = arg?.split(separator: ",").map(String.init) ?? []
+            guard parts.count == 2 else { return }
+            saveConfig(parts[0], "{ style = \(ConfigEditor.string(parts[1])) }", table: "icons.apps")
+            return
+        case "icons.app.file":
+            if let id = arg { chooseIconFile(for: id) }
+            return
+        case "icons.app.reset":
+            if let id = arg { saveConfig(id, nil, table: "icons.apps") }
+            return
+        case BarRequest.openIconPacks:
+            try? FileManager.default.createDirectory(at: GizmoPaths.iconPacksDir, withIntermediateDirectories: true)
+            NSWorkspace.shared.open(GizmoPaths.iconPacksDir)
+            return
+        default: break
+        }
+        let network = self.network!, battery = self.battery!, audio = self.audio!, displays = self.displays!
+        Task {
+            switch action {
+            case BarRequest.refreshConnectivity: await network.refreshConnectivity()
+            case BarRequest.toggleWiFi: await network.toggleWiFi()
+            case BarRequest.toggleBluetooth: await network.toggleBluetooth()
+            case BarRequest.batteryDetailsOn: await battery.setDetailed(true)
+            case BarRequest.batteryDetailsOff: await battery.setDetailed(false)
+            case BarRequest.toggleLowPower: await battery.toggleLowPower()
+            case BarRequest.toggleNoSleep: await battery.toggleNoSleep()
+            case BarRequest.setChargeLimit: await battery.setChargeLimit()
+            case BarRequest.toggleMute: await audio.toggleMute()
+            case "audio.volume": if let v = arg.flatMap(Double.init) { await audio.setVolume(v) }
+            case "audio.output": if let id = arg.flatMap(UInt32.init) { await audio.select(id) }
+            case BarRequest.refreshDisplays: await displays.refresh()
+            case BarRequest.toggleNightShift: await displays.toggleNightShift()
+            case "displays.brightness":
+                if let a = Self.displayArg(arg) { await displays.setBrightness(display: a.0, a.1) }
+            case "displays.contrast":
+                if let a = Self.displayArg(arg) { await displays.setContrast(display: a.0, a.1) }
+            case "displays.warmth": if let v = arg.flatMap(Int.init) { await displays.setWarmth(v) }
+            default: NSLog("gizmobar: unknown request \(name)")
+            }
+        }
+    }
+
+    /// "<display id>,<value>"
+    private nonisolated static func displayArg(_ arg: String?) -> (UInt32, Int)? {
+        let parts = arg?.split(separator: ",") ?? []
+        guard parts.count == 2, let id = UInt32(parts[0]), let v = Int(parts[1]) else { return nil }
+        return (id, v)
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         server?.stop()
         watcher?.stop()
     }
 
     // MARK: - Config
+
+    /// Writes one setting to config.toml and reloads right away (the watcher
+    /// would too, a moment later).
+    private func saveConfig(_ key: String, _ value: String?, table: String? = nil) {
+        do {
+            try ConfigEditor.update(key, value, table: table)
+            reload()
+        } catch {
+            NSLog("gizmobar: saving \(key): \(error)")
+        }
+    }
+
+    /// "Choose File…" from an icon's menu: an SVG becomes that app's icon.
+    private func chooseIconFile(for bundleID: String) {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.svg]
+        panel.directoryURL = GizmoPaths.iconPacksDir
+        panel.message = "Choose a single-color SVG for this app"
+        NSApp.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let path = url.path.hasPrefix(home) ? "~" + url.path.dropFirst(home.count) : url.path
+        saveConfig(bundleID, "{ file = \(ConfigEditor.string(path)) }", table: "icons.apps")
+    }
 
     private func loadConfig() -> GizmoConfig {
         do { return try GizmoConfig.load() } catch {
@@ -120,29 +222,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 "subscribers": .number(Double(await bus.subscriberCount)),
             ])
         case "icons":
-            return iconsCommand(req.args)
+            return await iconsCommand(req.args)
         default:
             return .error("unknown command: \(req.command)")
         }
     }
 
-    private func iconsCommand(_ args: [String]) -> IPCResponse {
+    private func iconsCommand(_ args: [String]) async -> IPCResponse {
         switch args.first {
         case "missing":
-            // Apps currently open whose icon came from the fallback.
-            // TODO(phase 2): rank by usage over time, not just what's open now.
-            var seen = Set<String>()
-            var missing: [JSONValue] = []
+            // Apps you've used (most used first), then any open now that
+            // haven't been seen yet, whose icon came from the fallback.
+            let usage = await apps.usage()
+            var rows: [(id: String, name: String, seconds: Double, activations: Int)] =
+                usage.ranked.map { ($0.bundleID, $0.entry.name, $0.entry.seconds, $0.entry.activations) }
+            var seen = Set(rows.map(\.id))
             for app in NSWorkspace.shared.runningApplications where app.activationPolicy == .regular {
-                let id = app.bundleIdentifier ?? ""
-                guard seen.insert(id).inserted else { continue }
-                if store.icons.resolve(bundleID: app.bundleIdentifier, appName: app.localizedName ?? "").isFallback {
-                    missing.append(["bundleId": .string(id), "name": .string(app.localizedName ?? "")])
-                }
+                guard let id = app.bundleIdentifier, seen.insert(id).inserted else { continue }
+                rows.append((id, app.localizedName ?? id, 0, 0))
+            }
+            let missing: [JSONValue] = rows.compactMap { r in
+                guard store.icons.resolve(bundleID: r.id, appName: r.name).isFallback else { return nil }
+                return [
+                    "bundleId": .string(r.id),
+                    "name": .string(r.name),
+                    "minutes": .number((r.seconds / 60).rounded()),
+                    "activations": .number(Double(r.activations)),
+                ]
             }
             return .init(ok: true, data: .array(missing))
         default:
             return .error("usage: gizmo icons missing")
         }
+    }
+}
+
+private extension Array where Element == String {
+    func splitFirst() -> (String, String?) {
+        (first ?? "", count > 1 ? self[1] : nil)
     }
 }

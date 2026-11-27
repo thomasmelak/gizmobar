@@ -22,6 +22,7 @@ struct AppIconView: View {
                 }
             }
             .help(app.name)
+            .contextMenu { if let id = app.bundleID { IconMenu(bundleID: id, name: app.name, resolved: resolved) } }
     }
 
     @ViewBuilder
@@ -58,6 +59,38 @@ struct AppIconView: View {
     private var generic: some View {
         Image(systemName: "app.dashed").resizable().scaledToFit()
             .foregroundStyle(Color(hex: store.theme.workspaceIcon))
+    }
+}
+
+/// Right-click menu on an app icon: pick where its icon comes from. Saved
+/// as an `[icons.apps]` override in config.toml.
+private struct IconMenu: View {
+    let bundleID: String
+    let name: String
+    let resolved: ResolvedIcon
+    @Environment(BarStore.self) private var store
+
+    var body: some View {
+        let s = store.config.icons
+        let override = s.apps[bundleID]
+        let packName = s.customPack.flatMap { store.icons.packs[$0]?.manifest.name } ?? "Custom Pack"
+        Text(name)
+        Toggle(packName, isOn: binding(resolved.source == s.customPack) {
+            store.request(BarRequest.setAppIconStyle(bundleID, .custom))
+        })
+        Toggle("System Icon", isOn: binding(resolved.source == "override" && override?.style == .system || resolved.source == "system-style") {
+            store.request(BarRequest.setAppIconStyle(bundleID, .system))
+        })
+        Button("Choose File…") { store.request(BarRequest.chooseAppIconFile(bundleID)) }
+        Divider()
+        if override != nil {
+            Button("Reset to Default") { store.request(BarRequest.resetAppIcon(bundleID)) }
+        }
+        Button("Open Icon Packs Folder") { store.request(BarRequest.openIconPacks) }
+    }
+
+    private func binding(_ on: Bool, _ action: @escaping @MainActor () -> Void) -> Binding<Bool> {
+        Binding(get: { on }, set: { _ in action() })
     }
 }
 

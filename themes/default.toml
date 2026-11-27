@@ -1,0 +1,22 @@
+# Default, ported from the SketchyBar themes/default.sh.
+# The original translucent grey look
+# Backgrounds use the glass alphas from the Gizmo theme; other keys fall
+# back to Gizmo (corner radius, font).
+name = "Default"
+item_bg = "#66666699"
+item_border = "#ffffff3f"
+icon = "#ffffff"
+label = "#ffffff"
+ws_bg = "#ffffff00"
+ws_icon = "#ffffff"
+ws_focus_bg = "#66666699"
+ws_focus_border = "#ffffff3f"
+ws_focus_icon = "#ffffff"
+accent = "#ffffff"
+popup_bg = "#333333b8"
+popup_border = "#ffffff3f"
+net_down = "#90e24a"
+net_up = "#4a90e2"
+good = "#90e24a"
+warn = "#ffd60a"
+bad = "#ff7050"

@@ -17,6 +17,8 @@ public struct Theme: Sendable, Equatable, Decodable {
     public var accent: String
     public var popupBackground: String
     public var popupBorder: String
+    public var netDown: String
+    public var netUp: String
     public var good: String
     public var warn: String
     public var bad: String
@@ -37,6 +39,8 @@ public struct Theme: Sendable, Equatable, Decodable {
         case accent
         case popupBackground = "popup_bg"
         case popupBorder = "popup_border"
+        case netDown = "net_down"
+        case netUp = "net_up"
         case good, warn, bad
         case cornerRadius = "corner_radius"
         case font
@@ -50,6 +54,7 @@ public struct Theme: Sendable, Equatable, Decodable {
         workspaceBackground: "#0d053373", workspaceIcon: "#7a74b8",
         workspaceFocusBackground: "#1d0f5c99", workspaceFocusBorder: "#b77cff", workspaceFocusIcon: "#b77cff",
         accent: "#b77cff", popupBackground: "#0d0533b8", popupBorder: "#b77cff",
+        netDown: "#5fd38d", netUp: "#6e89ff",
         good: "#5fd38d", warn: "#ffc857", bad: "#ff5c7a",
         cornerRadius: 10, font: "Kode Mono", fontSize: 12
     )
@@ -58,7 +63,7 @@ public struct Theme: Sendable, Equatable, Decodable {
         name: String, itemBackground: String, itemBorder: String, icon: String, label: String,
         workspaceBackground: String, workspaceIcon: String, workspaceFocusBackground: String,
         workspaceFocusBorder: String, workspaceFocusIcon: String, accent: String,
-        popupBackground: String, popupBorder: String, good: String, warn: String, bad: String,
+        popupBackground: String, popupBorder: String, netDown: String, netUp: String, good: String, warn: String, bad: String,
         cornerRadius: Double, font: String, fontSize: Double
     ) {
         self.name = name; self.itemBackground = itemBackground; self.itemBorder = itemBorder
@@ -66,6 +71,7 @@ public struct Theme: Sendable, Equatable, Decodable {
         self.workspaceIcon = workspaceIcon; self.workspaceFocusBackground = workspaceFocusBackground
         self.workspaceFocusBorder = workspaceFocusBorder; self.workspaceFocusIcon = workspaceFocusIcon
         self.accent = accent; self.popupBackground = popupBackground; self.popupBorder = popupBorder
+        self.netDown = netDown; self.netUp = netUp
         self.good = good; self.warn = warn; self.bad = bad
         self.cornerRadius = cornerRadius; self.font = font; self.fontSize = fontSize
     }
@@ -89,6 +95,8 @@ public struct Theme: Sendable, Equatable, Decodable {
         accent = try s(.accent, t.accent)
         popupBackground = try s(.popupBackground, t.popupBackground)
         popupBorder = try s(.popupBorder, t.popupBorder)
+        netDown = try s(.netDown, t.netDown)
+        netUp = try s(.netUp, t.netUp)
         good = try s(.good, t.good)
         warn = try s(.warn, t.warn)
         bad = try s(.bad, t.bad)
@@ -97,13 +105,50 @@ public struct Theme: Sendable, Equatable, Decodable {
         fontSize = try c.decodeIfPresent(Double.self, forKey: .fontSize) ?? t.fontSize
     }
 
-    public static func load(named name: String, in dir: URL = GizmoPaths.themesDir) -> Theme {
-        let url = dir.appendingPathComponent("\(name).toml")
-        guard let text = try? String(contentsOf: url, encoding: .utf8),
-              let theme = try? TOMLDecoder().decode(Theme.self, from: text)
-        else { return .gizmo }
-        return theme
+    /// Theme folders, highest priority first: yours, then the ones bundled
+    /// with the app.
+    public static var searchDirs: [URL] {
+        var dirs = [GizmoPaths.themesDir]
+        if let bundled = Bundle.main.resourceURL?.appendingPathComponent("themes", isDirectory: true) { dirs.append(bundled) }
+        return dirs
     }
+
+    public static func load(named name: String, in dirs: [URL] = Theme.searchDirs) -> Theme {
+        for dir in dirs {
+            let url = dir.appendingPathComponent("\(name).toml")
+            guard let text = try? String(contentsOf: url, encoding: .utf8) else { continue }
+            if let theme = try? TOMLDecoder().decode(Theme.self, from: text) { return theme }
+        }
+        return .gizmo
+    }
+
+    public static func load(named name: String, in dir: URL) -> Theme { load(named: name, in: [dir]) }
+
+    /// Every theme in `dirs` (a theme of yours hides a bundled one with the
+    /// same id), Gizmo first and the rest by name.
+    public static func catalog(in dirs: [URL] = Theme.searchDirs) -> [ThemeEntry] {
+        var entries: [String: ThemeEntry] = ["gizmo": ThemeEntry(id: "gizmo", name: Theme.gizmo.name)]
+        for dir in dirs.reversed() {
+            let files = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
+            for url in files where url.pathExtension == "toml" {
+                let id = url.deletingPathExtension().lastPathComponent
+                guard let text = try? String(contentsOf: url, encoding: .utf8),
+                      let theme = try? TOMLDecoder().decode(Theme.self, from: text) else { continue }
+                entries[id] = ThemeEntry(id: id, name: theme.name)
+            }
+        }
+        return entries.values.sorted { a, b in
+            if a.id == "gizmo" || b.id == "gizmo" { return a.id == "gizmo" }
+            return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+        }
+    }
+}
+
+/// A theme the picker can offer: its file name and display name.
+public struct ThemeEntry: Sendable, Equatable, Identifiable {
+    public var id: String
+    public var name: String
+    public init(id: String, name: String) { self.id = id; self.name = name }
 }
 
 /// Parses `#RGB`, `#RRGGBB`, `#RRGGBBAA` and SketchyBar's `0xAARRGGBB`.

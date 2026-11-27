@@ -9,8 +9,9 @@ Start a new one with `gizmo icons init <id>`.
 
 - `tefer-line/`: the default custom pack. Single-color SVGs on a 24 grid with a
   1.5 stroke (Phosphor Light style), named by bundle ID, `fill="currentColor"`.
-  `colors.json` carries the brand colors from SketchyBar's `app_colors.sh`;
-  the first 27 icons to draw are exactly those apps.
+  `colors.json` carries the brand colors from SketchyBar's `app_colors.sh`,
+  and the first 27 icons cover exactly those apps. Right-click any icon on
+  the bar to switch it to the system icon or your own SVG.
 - `sketchybar-app-font/`: ligatures from the font you use today. Needs the
   font installed (`brew install --cask font-sketchybar-app-font`).
   `glyphs.json` starts with the same 27 apps; the full ~800 mapping gets

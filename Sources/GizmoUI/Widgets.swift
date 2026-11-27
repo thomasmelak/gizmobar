@@ -135,6 +135,12 @@ enum WidgetRegistry {
         case "workspaces": WorkspacesWidget()
         case "front_app": FrontAppWidget()
         case "clock": ClockWidget()
+        case "system": SystemWidget()
+        case "network": NetworkWidget()
+        case "battery": BatteryWidget()
+        case "brightness": BrightnessWidget()
+        case "volume": VolumeWidget()
+        case "theme": ThemeWidget()
         default: MissingWidget(id: id)
         }
     }

@@ -16,6 +16,14 @@ public enum GizmoPaths {
     public static var pluginsDir: URL { configDir.appendingPathComponent("plugins", isDirectory: true) }
     public static var iconPacksDir: URL { configDir.appendingPathComponent("icon-packs", isDirectory: true) }
 
+    /// `~/Library/Application Support/Gizmobar`: state the bar keeps for itself.
+    public static var stateDir: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Gizmobar", isDirectory: true)
+    }
+
+    public static var usageFile: URL { stateDir.appendingPathComponent("usage.json") }
+
     /// Control socket used by the `gizmo` CLI.
     public static var socket: URL {
         if let override = ProcessInfo.processInfo.environment["GIZMOBAR_SOCKET"], !override.isEmpty {

@@ -1,0 +1,21 @@
+# Gruvbox, ported from the SketchyBar themes/gruvbox-dark.sh.
+# Backgrounds use the glass alphas from the Gizmo theme; other keys fall
+# back to Gizmo (corner radius, font).
+name = "Gruvbox"
+item_bg = "#28282899"
+item_border = "#504945"
+icon = "#fe8019"
+label = "#ebdbb2"
+ws_bg = "#28282873"
+ws_icon = "#928374"
+ws_focus_bg = "#3c383699"
+ws_focus_border = "#fabd2f"
+ws_focus_icon = "#fabd2f"
+accent = "#fabd2f"
+popup_bg = "#282828b8"
+popup_border = "#fabd2f"
+net_down = "#b8bb26"
+net_up = "#83a598"
+good = "#b8bb26"
+warn = "#fabd2f"
+bad = "#fb4934"

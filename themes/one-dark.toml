@@ -1,0 +1,21 @@
+# One, ported from the SketchyBar themes/one-dark.sh.
+# Backgrounds use the glass alphas from the Gizmo theme; other keys fall
+# back to Gizmo (corner radius, font).
+name = "One"
+item_bg = "#282c3499"
+item_border = "#3e4451"
+icon = "#61afef"
+label = "#abb2bf"
+ws_bg = "#282c3473"
+ws_icon = "#5c6370"
+ws_focus_bg = "#2c313a99"
+ws_focus_border = "#c678dd"
+ws_focus_icon = "#c678dd"
+accent = "#c678dd"
+popup_bg = "#282c34b8"
+popup_border = "#c678dd"
+net_down = "#98c379"
+net_up = "#61afef"
+good = "#98c379"
+warn = "#e5c07b"
+bad = "#e06c75"

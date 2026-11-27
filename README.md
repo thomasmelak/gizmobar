@@ -39,7 +39,7 @@ gizmo ping
 gizmo trigger vpn.status up=true    # push your own events onto the bus
 gizmo reload                        # re-read config, theme and icon packs
 gizmo state
-gizmo icons missing                 # open apps the icon packs don't cover
+gizmo icons missing                 # apps the icon packs don't cover, most used first
 gizmo icons init my-icons           # start a custom icon pack
 ```
 
@@ -59,7 +59,8 @@ exec-on-workspace-change = ['gizmo', 'trigger', 'aerospace.workspace']
 
 ```
 config.toml          # layout, bar, icons, aerospace (see examples/gizmobar)
-themes/<name>.toml   # design tokens; missing keys fall back to Gizmo
+themes/<name>.toml   # design tokens; missing keys fall back to Gizmo. 12 themes are
+                     # bundled (Gizmo, Nord, Dracula, Catppuccin...); yours win by name
 icon-packs/<id>/     # extra or replacement icon packs
 plugins/<id>/        # TypeScript plugins (runtime arrives in Phase 4)
 ```

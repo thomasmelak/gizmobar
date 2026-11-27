@@ -20,7 +20,18 @@ let package = Package(
         // Unix socket protocol shared by the app and the `gizmo` CLI.
         .target(name: "GizmoIPC", dependencies: ["GizmoCore"]),
         // In-process data sources (AeroSpace, apps, clock, displays).
-        .target(name: "GizmoProviders", dependencies: ["GizmoCore"]),
+        .target(
+            name: "GizmoProviders",
+            dependencies: ["GizmoCore"],
+            linkerSettings: [
+                .linkedFramework("IOKit"),
+                .linkedFramework("CoreWLAN"),
+                .linkedFramework("SystemConfiguration"),
+                .linkedFramework("IOBluetooth"),
+                .linkedFramework("Network"),
+                .linkedFramework("CoreAudio"),
+            ]
+        ),
         // 3D scene engine contract (Phase 5: RealityKit, Metal fallback).
         .target(name: "GizmoScene", dependencies: ["GizmoCore"]),
         // Panels, SwiftUI widgets, icon rendering.
