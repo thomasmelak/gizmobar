@@ -10,7 +10,9 @@ public enum AutoHideRules {
     /// windows start below it: `topInset` is that strip's height.
     public static func isFullscreen(windows: [CGRect], display: CGRect, topInset: CGFloat = 0) -> Bool {
         windows.contains { w in
-            let top = abs(w.minY - display.minY) < 1 || (topInset > 0 && abs(w.minY - (display.minY + topInset)) < 1)
+            // Below the notch, give or take a point (Chrome sits 1 pt lower).
+            let top = abs(w.minY - display.minY) < 1
+                || (topInset > 0 && w.minY > display.minY && w.minY <= display.minY + topInset + 2)
             return top && abs(w.minX - display.minX) < 1 && abs(w.width - display.width) < 1
                 && abs(w.maxY - display.maxY) < 1
         }

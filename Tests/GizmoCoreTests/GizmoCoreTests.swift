@@ -768,7 +768,9 @@ struct AutoHideTests {
         #expect(!AutoHideRules.isFullscreen(windows: [], display: screen))
         // Notched display: fullscreen windows start below the notch.
         #expect(AutoHideRules.isFullscreen(windows: [CGRect(x: 0, y: 38, width: 1512, height: 944)], display: screen, topInset: 38))
+        #expect(AutoHideRules.isFullscreen(windows: [CGRect(x: 0, y: 39, width: 1512, height: 943)], display: screen, topInset: 38))
         #expect(!AutoHideRules.isFullscreen(windows: [CGRect(x: 10, y: 38, width: 1492, height: 934)], display: screen, topInset: 38))
+        #expect(!AutoHideRules.isFullscreen(windows: [CGRect(x: 0, y: 60, width: 1512, height: 922)], display: screen, topInset: 38))
     }
 
     @Test func zones() {
