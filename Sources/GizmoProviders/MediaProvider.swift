@@ -113,6 +113,13 @@ public actor MediaProvider: Provider {
 
     public func seek(_ seconds: Double) async {
         guard let id = NowPlayingStatus.choose(Array(sources.values), picked: picked) else { return }
+        // Show the new position now; the player confirms it a moment later.
+        if var s = sources[id], s.track != nil {
+            s.track?.elapsed = seconds
+            s.track?.elapsedAt = Date()
+            sources[id] = s
+            await publish()
+        }
         switch id {
         case Self.spotify:
             _ = await scripts.run("tell application \"Spotify\" to set player position to \(seconds)") { _ in true }
@@ -122,12 +129,6 @@ public actor MediaProvider: Provider {
             await refreshPlayer(id)
         default:
             await generic(adapterArgs: ["seek", String(Int(seconds * 1_000_000))], cli: ["seek", String(seconds)])
-            if var s = sources[id], s.track != nil {
-                s.track?.elapsed = seconds
-                s.track?.elapsedAt = Date()
-                sources[id] = s
-                await publish()
-            }
         }
     }
 
@@ -301,22 +302,23 @@ public actor MediaProvider: Provider {
         guard let old, old.key == track.key else { return }
         track.artworkPath = old.artworkPath
         track.artColor = old.artColor
+        track.artGradient = old.artGradient
     }
 
     private func loadArt(for id: String, key: String, _ fetch: @Sendable () async -> Data?) async {
         guard lastArtKey[id] != key else { return }
         lastArtKey[id] = key
         let file = Self.artDir.appendingPathComponent(String(format: "%016llx", fnv1a(key)))
-        var color: String?
         if !FileManager.default.fileExists(atPath: file.path) {
             guard let data = await fetch(), !data.isEmpty else { return }
             try? FileManager.default.createDirectory(at: Self.artDir, withIntermediateDirectories: true)
             try? data.write(to: file, options: .atomic)
         }
-        color = Self.color(of: file)
+        let colors = Self.colors(of: file)
         guard var s = sources[id], s.track?.key == key else { return }
         s.track?.artworkPath = file.path
-        s.track?.artColor = color
+        s.track?.artColor = colors.first
+        s.track?.artGradient = colors.count > 1 ? colors : nil
         sources[id] = s
         await publish()
     }
@@ -326,13 +328,13 @@ public actor MediaProvider: Provider {
             .appendingPathComponent("Gizmobar/art", isDirectory: true)
     }
 
-    /// The art's main color, from a 32 px thumbnail.
-    static func color(of file: URL) -> String? {
+    /// The art's main colors (main one first), from a 32 px thumbnail.
+    static func colors(of file: URL) -> [String] {
         guard let src = CGImageSourceCreateWithURL(file as CFURL, nil),
               let thumb = CGImageSourceCreateThumbnailAtIndex(src, 0, [
                 kCGImageSourceCreateThumbnailFromImageAlways: true,
                 kCGImageSourceThumbnailMaxPixelSize: 32,
-              ] as CFDictionary) else { return nil }
+              ] as CFDictionary) else { return [] }
         let w = thumb.width, h = thumb.height
         var pixels = [UInt8](repeating: 0, count: w * h * 4)
         let drawn: Bool = pixels.withUnsafeMutableBytes { buf in
@@ -342,8 +344,8 @@ public actor MediaProvider: Provider {
             ctx.draw(thumb, in: CGRect(x: 0, y: 0, width: w, height: h))
             return true
         }
-        guard drawn, let c = ArtColor.dominant(rgba: pixels) else { return nil }
-        return ArtColor.hex(ArtColor.readable(c))
+        guard drawn else { return [] }
+        return ArtColor.palette(rgba: pixels, count: 3).map { ArtColor.hex(ArtColor.readable($0)) }
     }
 
     // MARK: State

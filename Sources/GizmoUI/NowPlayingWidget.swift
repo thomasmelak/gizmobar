@@ -267,7 +267,8 @@ private struct Scrubber: View {
             TimelineView(.periodic(from: .now, by: source.isPlaying ? 1 : 3600)) { tl in
                 let pos = source.position(at: tl.date) ?? 0
                 VStack(spacing: 2) {
-                    BarSlider(value: pos / duration, tint: tint) { v in
+                    BarSlider(value: pos / duration, tint: tint, gradient: source.track?.artGradient,
+                              commitOnRelease: true) { v in
                         store.request(BarRequest.mediaSeek(v * duration))
                     }
                     HStack {

@@ -46,9 +46,11 @@ public struct MediaTrack: Sendable, Equatable, Codable {
     /// Cached artwork file and the color picked from it.
     public var artworkPath: String?
     public var artColor: String?
+    /// A few distinct colors from the art, most common first, for gradients.
+    public var artGradient: [String]?
 
     public init(title: String, artist: String = "", album: String = "", duration: Double? = nil,
-                elapsed: Double? = nil, elapsedAt: Date? = nil, artworkPath: String? = nil, artColor: String? = nil) {
+                elapsed: Double? = nil, elapsedAt: Date? = nil, artworkPath: String? = nil, artColor: String? = nil, artGradient: [String]? = nil) {
         self.title = title
         self.artist = artist
         self.album = album
@@ -57,6 +59,7 @@ public struct MediaTrack: Sendable, Equatable, Codable {
         self.elapsedAt = elapsedAt
         self.artworkPath = artworkPath
         self.artColor = artColor
+        self.artGradient = artGradient
     }
 
     /// Identifies the track for crossfades and art caching.
@@ -126,6 +129,12 @@ public struct NowPlayingStatus: Sendable, Equatable, Codable {
 public enum ArtColor {
     /// `pixels` is RGBA, 8 bits per channel, row after row.
     public static func dominant(rgba pixels: [UInt8]) -> RGBA? {
+        palette(rgba: pixels, count: 1).first
+    }
+
+    /// Up to `count` colors from the art, most common first, each at least
+    /// `minHueGap` (0...1 around the wheel) from the ones before it.
+    public static func palette(rgba pixels: [UInt8], count: Int, minHueGap: Double = 0.06) -> [RGBA] {
         var buckets: [Int: (count: Double, r: Double, g: Double, b: Double)] = [:]
         var i = 0
         while i + 3 < pixels.count {
@@ -142,8 +151,18 @@ public enum ArtColor {
             e.count += weight; e.r += r * weight; e.g += g * weight; e.b += b * weight
             buckets[key] = e
         }
-        guard let best = buckets.values.max(by: { $0.count < $1.count }) else { return nil }
-        return RGBA(r: best.r / best.count, g: best.g / best.count, b: best.b / best.count)
+        var picked: [(RGBA, Double)] = []
+        for e in buckets.values.sorted(by: { $0.count > $1.count }) {
+            guard picked.count < count else { break }
+            let c = RGBA(r: e.r / e.count, g: e.g / e.count, b: e.b / e.count)
+            let h = HSL(r: c.r, g: c.g, b: c.b).h
+            let far = picked.allSatisfy { _, ph in
+                let d = abs(ph - h)
+                return min(d, 1 - d) >= minHueGap
+            }
+            if far { picked.append((c, h)) }
+        }
+        return picked.map(\.0)
     }
 
     /// Raises lightness to at least `minLightness` and keeps the hue.

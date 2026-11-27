@@ -580,6 +580,16 @@ struct MediaTests {
         #expect(ArtColor.hex(RGBA(r: 1, g: 0, b: 0.5)) == "#ff0080")
     }
 
+    @Test func artPaletteKeepsDistinctHues() {
+        // 3 red, 2 near-red, 2 blue, 1 green: red, blue, green; near-red folds away.
+        let red: [UInt8] = [220, 30, 40, 255], nearRed: [UInt8] = [230, 50, 30, 255]
+        let blue: [UInt8] = [30, 60, 220, 255], green: [UInt8] = [40, 200, 60, 255]
+        let px = red + red + red + nearRed + nearRed + blue + blue + green
+        let p = ArtColor.palette(rgba: px, count: 3)
+        #expect(p.count == 3)
+        #expect(p[0].r > 0.7 && p[1].b > 0.7 && p[2].g > 0.7)
+    }
+
     @Test func spectrumBands() {
         // A loud bin near 1 kHz at 48 kHz / 1024-point FFT (46.875 Hz bins).
         var power = [Float](repeating: 0, count: 512)
