@@ -15,6 +15,7 @@ final class PopoverController {
     private var monitors: [Any] = []
 
     func isOpen(_ id: String) -> Bool { openID == id }
+    var anyOpen: Bool { openID != nil }
 
     func show(id: String, anchor: NSView, store: BarStore, root: AnyView, onClose: @escaping () -> Void) {
         close()
