@@ -59,7 +59,7 @@ struct PluginNodeView: View {
         case .pill(let child, let focused, let onClick, let popover):
             if inPopover {
                 PluginNodeView(plugin: plugin, node: child, inPopover: true)
-                    .barAction(onClick.map { id in { plugins.invoke?(plugin, id, .null) } })
+                    .barAction(callback(onClick))
             } else {
                 PluginPill(plugin: plugin, child: child, focused: focused, onClick: onClick, popover: popover)
             }
@@ -96,7 +96,7 @@ struct PluginNodeView: View {
         case .toggle(let on, let onChange):
             BarSwitch(isOn: on) { if let onChange { plugins.invoke?(plugin, onChange, .bool(!on)) } }
         case .button(let label, let icon, let onClick):
-            PopupRow(icon: icon ?? "circle", text: label, action: onClick.map { id in { plugins.invoke?(plugin, id, .null) } })
+            PopupRow(icon: icon ?? "circle", text: label, action: callback(onClick))
         case .scene(let options, _, _):
             SceneSlot(options: options)
         case .spacer:
@@ -104,6 +104,12 @@ struct PluginNodeView: View {
         case .error(let msg):
             Text("⚠︎ \(plugin)").font(.caption).foregroundStyle(Color(hex: t.bad)).help(msg)
         }
+    }
+
+    private func callback(_ id: Int?) -> (@MainActor () -> Void)? {
+        guard let id else { return nil }
+        let plugins = self.plugins, plugin = self.plugin
+        return { @MainActor in plugins.invoke?(plugin, id, .null) }
     }
 
     private func children(_ kids: [PluginNode]) -> some View {

@@ -627,6 +627,8 @@ struct SDKTypesTests {
         #expect(d.hasPrefix("declare module \"@gizmobar/sdk\" {\n"))
         #expect(d.contains("  export interface Providers {"))
         #expect(!d.contains("export declare"))
+    }
+}
 
 @Suite("AutoHide")
 struct AutoHideTests {
