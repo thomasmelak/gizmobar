@@ -206,8 +206,6 @@ struct RightClickArea: NSViewRepresentable {
 
 struct NowPlayingPopover: View {
     @Environment(BarStore.self) private var store
-    /// Art, two-line title, artist, album, scrubber, controls and spectrum.
-    static let detailHeight: CGFloat = 460
 
     var body: some View {
         let t = store.theme
@@ -220,9 +218,6 @@ struct NowPlayingPopover: View {
                     }
                 })
                 SourceList(shown: shown.id)
-                // One fixed height for players and other apps, so switching
-                // sources doesn't resize the popover and move its top edge.
-                VStack(alignment: .leading, spacing: 10) {
                 switch shown {
                 case .media(let source):
                     if let track = source.track {
@@ -244,7 +239,6 @@ struct NowPlayingPopover: View {
                     }
                 case .audio(let source):
                     VStack(spacing: 10) {
-                        Spacer().frame(height: 40)
                         AppIconView(app: AppRef(bundleID: source.id, name: source.name), size: 96)
                         Text(source.name).font(.custom(t.font, size: t.fontSize + 2).bold()).lineLimit(1)
                         Text(source.isActive ? "Playing sound" : "Quiet")
@@ -253,10 +247,7 @@ struct NowPlayingPopover: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
                     SpectrumBars(source: source.id, playing: source.isActive, color: t.accent).frame(height: 40)
-                        .frame(maxHeight: .infinity, alignment: .top)
                 }
-                }
-                .frame(height: Self.detailHeight, alignment: .top)
             }
             .frame(width: 260)
             .animation(.easeInOut(duration: 0.35), value: shown.id)

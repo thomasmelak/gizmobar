@@ -53,10 +53,12 @@ final class PopoverController {
         var x = anchorRect.midX - size.width / 2
         x = min(max(x, bounds.minX), bounds.maxX - size.width)
         let gap: CGFloat = 6
-        let y = store.config.bar.position == .bottom
-            ? anchorWindow.frame.maxY + gap
-            : anchorWindow.frame.minY - gap - size.height
-        p.setFrame(NSRect(x: x, y: y, width: size.width, height: size.height), display: true)
+        let fromBottom = store.config.bar.position == .bottom
+        p.anchor = PopoverPanel.Anchor(
+            midX: anchorRect.midX, minX: bounds.minX, maxX: bounds.maxX,
+            edge: fromBottom ? anchorWindow.frame.maxY + gap : anchorWindow.frame.minY - gap,
+            growsUp: fromBottom)
+        p.setFrame(NSRect(x: x, y: 0, width: size.width, height: size.height), display: true)
         p.orderFrontRegardless()
 
         panel = p
@@ -84,6 +86,35 @@ final class PopoverController {
 }
 
 final class PopoverPanel: NSPanel {
+    /// Where the panel sits: centered on the item (kept on screen) with its
+    /// bar-side edge fixed, so it grows and shrinks away from the bar when
+    /// its content changes size instead of moving.
+    struct Anchor {
+        var midX, minX, maxX: CGFloat
+        /// The bar-side edge's y in screen coordinates.
+        var edge: CGFloat
+        /// Bottom bar: the panel's bottom stays on `edge` and it grows up.
+        var growsUp: Bool
+    }
+
+    var anchor: Anchor?
+
+    override func setFrame(_ frameRect: NSRect, display flag: Bool) {
+        super.setFrame(anchored(frameRect), display: flag)
+    }
+
+    override func setFrame(_ frameRect: NSRect, display displayFlag: Bool, animate animateFlag: Bool) {
+        super.setFrame(anchored(frameRect), display: displayFlag, animate: animateFlag)
+    }
+
+    private func anchored(_ r: NSRect) -> NSRect {
+        guard let a = anchor else { return r }
+        var r = r
+        r.origin.x = min(max(a.midX - r.width / 2, a.minX), a.maxX - r.width)
+        r.origin.y = a.growsUp ? a.edge : a.edge - r.height
+        return r
+    }
+
     init() {
         super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
