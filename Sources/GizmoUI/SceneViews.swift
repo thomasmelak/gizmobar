@@ -167,6 +167,7 @@ final class ModelSceneHost: NSView {
     private var scene: ModelScene?
     private var camera = PerspectiveCamera()
     private var url: URL?
+    private var modelDate: Date?
     private var options: SceneOptions?
     private var orbit = false
     private var yawOffset: Float = 0
@@ -194,7 +195,10 @@ final class ModelSceneHost: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     func configure(url: URL, options: SceneOptions, orbit: Bool) {
-        let reload = url != self.url || options.look != self.options?.look
+        // A model file saved in place (same path) reloads too.
+        let modified = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date
+        let reload = url != self.url || options.look != self.options?.look || modified != modelDate
+        modelDate = modified
         let clipChanged = options.clip != self.options?.clip
         self.options = options
         self.orbit = orbit
