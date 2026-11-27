@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import GizmoCore
+import GizmoScene
 
 /// Plugin trees for the UI. The app fills it from the plugin manager and
 /// routes callbacks back.

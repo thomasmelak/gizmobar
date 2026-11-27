@@ -111,7 +111,7 @@ struct GlobeTests {
 @Suite("SceneOptions")
 struct SceneOptionsTests {
     @Test func parsesShorthands() throws {
-        let json = #"{"model":"models/pet.glb","size":28,"animation":{"clip":"dance","loop":false,"blend":0.3},"camera":{"yaw":-20},"look":"pbr","popover":{"size":240,"orbit":true},"parts":{"Head":{"color":"#ff0000","visible":false}},"spin":"slow"}"#
+        let json = ##"{"model":"models/pet.glb","size":28,"animation":{"clip":"dance","loop":false,"blend":0.3},"camera":{"yaw":-20},"look":"pbr","popover":{"size":240,"orbit":true},"parts":{"Head":{"color":"#ff0000","visible":false}},"spin":"slow"}"##
         let o = SceneOptions.parse(try JSONValue(parsing: Data(json.utf8)))
         #expect(o.model == "models/pet.glb")
         #expect(o.clip == "dance" && o.loop == false && o.blend == 0.3)
