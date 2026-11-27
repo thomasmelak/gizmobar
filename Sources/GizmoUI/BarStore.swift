@@ -17,6 +17,12 @@ public final class BarStore {
     /// A source picked in the now playing popover (a player or any app
     /// making sound); nil follows what's playing.
     public var pickedSource: String?
+    /// Bumped by `gizmo popover <id>`; the item with that id toggles its popover.
+    public var popoverToggle = PopoverToggle(id: "", serial: 0)
+
+    public func togglePopover(_ id: String) {
+        popoverToggle = PopoverToggle(id: id, serial: popoverToggle.serial + 1)
+    }
 
     /// What the now playing pill shows.
     public var shownSource: ShownSource? {
@@ -101,4 +107,9 @@ public enum BarRequest {
     public static func spotifyPlay(_ uri: String) -> String { "spotify.play:\(uri)" }
     public static func setTheme(_ id: String) -> String { "theme.set:\(id)" }
     public static func setWarmth(_ v: Int) -> String { "displays.warmth:\(v)" }
+}
+
+public struct PopoverToggle: Equatable, Sendable {
+    public var id: String
+    public var serial: Int
 }

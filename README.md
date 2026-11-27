@@ -92,6 +92,7 @@ SIGN_IDENTITY="Apple Development: Your Name (TEAMID)" make app
 ```sh
 gizmo ping
 gizmo trigger vpn.status up=true    # push your own events onto the bus
+gizmo popover now_playing           # open or close a popover, e.g. from a hotkey
 gizmo reload                        # re-read config, theme and icon packs
 gizmo state
 gizmo icons missing                 # apps the icon packs don't cover, most used first

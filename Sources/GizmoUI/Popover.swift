@@ -3,29 +3,34 @@ import SwiftUI
 import GizmoCore
 
 /// Popovers are child panels anchored to their item: glass, themed, clamped
-/// to the screen, above the bar (below it for a top bar). One is open at a
-/// time; clicking anywhere outside closes it unless it's pinned.
+/// to the screen, above the bar (below it for a top bar). One unpinned
+/// popover is open at a time and clicking anywhere outside closes it.
+/// Pinned ones stay open, alongside each other and the unpinned one, until
+/// unpinned or toggled from their item.
 @MainActor
 final class PopoverController {
     static let shared = PopoverController()
 
-    /// Whether the open popover ignores outside clicks.
-    let pin = PopoverPin()
+    private struct Entry {
+        let panel: PopoverPanel
+        let pin: PopoverPin
+        let onClose: () -> Void
+    }
 
-    private var panel: NSPanel?
-    private var openID: String?
-    private var onClose: (() -> Void)?
-    private var monitors: [Any] = []
+    private var open: [String: Entry] = [:]
+    private var monitor: Any?
 
-    func isOpen(_ id: String) -> Bool { openID == id }
-    var anyOpen: Bool { openID != nil }
+    func isOpen(_ id: String) -> Bool { open[id] != nil }
+    var anyOpen: Bool { !open.isEmpty }
 
     func show(id: String, anchor: NSView, store: BarStore, root: AnyView, onClose: @escaping () -> Void) {
-        close()
+        close(id: id)
+        closeUnpinned()
         guard let anchorWindow = anchor.window, let screen = anchorWindow.screen else {
             onClose()
             return
         }
+        let pin = PopoverPin()
         let t = store.theme
         let shape = RoundedRectangle(cornerRadius: t.cornerRadius + 4, style: .continuous)
         let content = root
@@ -65,33 +70,32 @@ final class PopoverController {
             growsUp: fromBottom)
         p.setFrame(NSRect(x: x, y: 0, width: size.width, height: size.height), display: true)
         p.orderFrontRegardless()
+        open[id] = Entry(panel: p, pin: pin, onClose: onClose)
 
-        panel = p
-        openID = id
-        self.onClose = onClose
-
-        // Clicks in other apps close it unless pinned. Clicks on the bar are
-        // left to the items (clicking the same item toggles, another item
-        // replaces it).
-        if let global = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self, !self.pin.pinned else { return }
-                self.close()
+        // Clicks in other apps close the unpinned popover. Clicks on the bar
+        // are left to the items (clicking the same item toggles, another
+        // item replaces the unpinned one).
+        if monitor == nil {
+            monitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+                MainActor.assumeIsolated { self?.closeUnpinned() }
             }
-        }) { monitors.append(global) }
+        }
     }
 
+    /// Closes the popover `id`, or with no id every unpinned one.
     func close(id: String? = nil) {
-        if let id, id != openID { return }
-        monitors.forEach(NSEvent.removeMonitor)
-        monitors.removeAll()
-        panel?.orderOut(nil)
-        panel = nil
-        openID = nil
-        pin.pinned = false
-        let callback = onClose
-        onClose = nil
-        callback?()
+        guard let id else { return closeUnpinned() }
+        guard let entry = open.removeValue(forKey: id) else { return }
+        entry.panel.orderOut(nil)
+        if open.isEmpty, let m = monitor {
+            NSEvent.removeMonitor(m)
+            monitor = nil
+        }
+        entry.onClose()
+    }
+
+    private func closeUnpinned() {
+        for (id, entry) in open where !entry.pin.pinned { close(id: id) }
     }
 }
 
@@ -167,6 +171,9 @@ private struct BarPopoverModifier<P: View>: ViewModifier {
     func body(content: Content) -> some View {
         content
             .background(AnchorView(box: anchor))
+            .onChange(of: store.popoverToggle) { _, t in
+                if t.id == id { isPresented.toggle() }
+            }
             .onChange(of: isPresented) { _, shown in
                 if shown, let view = anchor.view {
                     PopoverController.shared.show(id: id, anchor: view, store: store, root: AnyView(popover())) {

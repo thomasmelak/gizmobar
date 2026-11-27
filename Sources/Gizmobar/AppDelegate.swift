@@ -299,6 +299,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "reload":
             reload()
             return .init(ok: true, message: "reloaded")
+        case "popover":
+            guard let id = req.args.first else { return .error("usage: gizmo popover <id>") }
+            store.togglePopover(id)
+            return .init(ok: true)
         case "state":
             let s = store.snapshot
             return .init(ok: true, data: [
