@@ -29,8 +29,12 @@ first time you open it macOS will refuse; go to System Settings > Privacy & Secu
 
 ```sh
 brew tap thomasmelak/gizmobar https://github.com/thomasmelak/gizmobar
+brew trust thomasmelak/gizmobar
 brew install --cask gizmobar
 ```
+
+Current Homebrew refuses casks from a tap you haven't trusted, hence `brew trust`; older
+versions don't have the command and can skip that line.
 
 Homebrew clears the quarantine flag, links `gizmo` onto your PATH and starts the bar. Update
 with `brew upgrade --cask --greedy gizmobar`.
