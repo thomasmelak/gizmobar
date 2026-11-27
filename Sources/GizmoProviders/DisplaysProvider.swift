@@ -214,7 +214,7 @@ final class DDCService: @unchecked Sendable {
         guard IORegistryEntryCreateIterator(root, kIOServicePlane, IOOptionBits(kIORegistryIterateRecursively), &iterator) == KERN_SUCCESS else { return [] }
         defer { IOObjectRelease(iterator) }
         var attrs: [String: Any]?
-        while case let entry = IORegistryIteratorNext(iterator), entry != 0 {
+        while case let entry = IOIteratorNext(iterator), entry != 0 {
             defer { IOObjectRelease(entry) }
             var nameBuf = [CChar](repeating: 0, count: 128)
             IORegistryEntryGetName(entry, &nameBuf)
