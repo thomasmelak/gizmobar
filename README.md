@@ -37,7 +37,7 @@ Current Homebrew refuses casks from a tap you haven't trusted, hence `brew trust
 versions don't have the command and can skip that line.
 
 Homebrew clears the quarantine flag, links `gizmo` onto your PATH and starts the bar. Update
-with `brew upgrade --cask --greedy gizmobar`.
+with `brew upgrade --cask gizmobar`.
 
 **One-line installer**
 
@@ -186,8 +186,9 @@ See [docs/architecture.md](docs/architecture.md) for how the pieces fit.
 
 Push a tag like `v0.1.0`, or run the **Release** workflow from the Actions tab with a tag name.
 It runs the tests, builds a universal app, signs it once in CI, and publishes `Gizmobar.zip`
-and `Gizmobar.dmg` to a GitHub release. The Homebrew cask, the one-line installer and the download
-link above always point at the latest release, so nothing else needs updating.
+and `Gizmobar.dmg` to a GitHub release. The one-line installer and the download link always point
+at the latest release. The workflow also opens a pull request that bumps the version and
+sha256 in `Casks/gizmobar.rb`; merge it and `brew upgrade` offers the new version.
 
 Releases are signed with a self-signed certificate stored in the `SIGNING_CERT_P12` and
 `SIGNING_CERT_PASSWORD` secrets, so privacy grants survive updates. Create it once with
