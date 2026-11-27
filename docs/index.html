@@ -167,11 +167,12 @@
     <div class="panel" role="tabpanel" id="p-brew" aria-labelledby="t-brew">
       <ol class="steps">
         <li>
-          <p>Add the tap and install the cask:</p>
+          <p>Add the tap, trust it, and install the cask:</p>
           <div class="code"><pre><span class="p">$ </span>brew tap thomasmelak/gizmobar https://github.com/thomasmelak/gizmobar
+<span class="p">$ </span>brew trust thomasmelak/gizmobar
 <span class="p">$ </span>brew install --cask gizmobar</pre><button class="copy">Copy</button></div>
         </li>
-        <li><p>Homebrew clears the quarantine flag, puts <code>gizmo</code> on your <code>PATH</code> and starts the bar, so there's no security prompt.</p></li>
+        <li><p>Current Homebrew refuses casks from a tap you haven't trusted, hence <code>brew trust</code>. If your Homebrew says the command doesn't exist, it's older and you can skip that line. Homebrew clears the quarantine flag, puts <code>gizmo</code> on your <code>PATH</code> and starts the bar, so there's no security prompt.</p></li>
         <li>
           <p>Copy the example config, and update later with <code>brew upgrade</code>:</p>
           <div class="code"><pre><span class="p">$ </span>gizmo config init
