@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var network: NetworkProvider!
     private var battery: BatteryProvider!
     private var audio: AudioProvider!
+    private var displays: DisplaysProvider!
     private var providers: [any Provider] = []
     private var watcher: ConfigWatcher?
 
@@ -28,7 +29,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         network = NetworkProvider()
         battery = BatteryProvider()
         audio = AudioProvider()
-        providers = [ClockProvider(), AppsProvider(), aerospace, SystemProvider(), network, battery, audio]
+        displays = DisplaysProvider()
+        providers = [ClockProvider(), AppsProvider(), aerospace, SystemProvider(), network, battery, audio, displays]
         store.onRequest = { [weak self] name in self?.handleRequest(name) }
         store.onFocusWorkspace = { [aerospace] ws in
             Task { await aerospace?.focus(workspace: ws) }
@@ -54,7 +56,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Requests from widgets, routed to the provider that owns them.
     private func handleRequest(_ name: String) {
         let (action, arg) = name.split(separator: ":", maxSplits: 1).map(String.init).splitFirst()
-        let network = self.network!, battery = self.battery!, audio = self.audio!
+        let network = self.network!, battery = self.battery!, audio = self.audio!, displays = self.displays!
         Task {
             switch action {
             case BarRequest.refreshConnectivity: await network.refreshConnectivity()
@@ -68,9 +70,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case BarRequest.toggleMute: await audio.toggleMute()
             case "audio.volume": if let v = arg.flatMap(Double.init) { await audio.setVolume(v) }
             case "audio.output": if let id = arg.flatMap(UInt32.init) { await audio.select(id) }
+            case BarRequest.refreshDisplays: await displays.refresh()
+            case BarRequest.toggleNightShift: await displays.toggleNightShift()
+            case "displays.brightness":
+                if let a = Self.displayArg(arg) { await displays.setBrightness(display: a.0, a.1) }
+            case "displays.contrast":
+                if let a = Self.displayArg(arg) { await displays.setContrast(display: a.0, a.1) }
+            case "displays.warmth": if let v = arg.flatMap(Int.init) { await displays.setWarmth(v) }
             default: NSLog("gizmobar: unknown request \(name)")
             }
         }
+    }
+
+    /// "<display id>,<value>"
+    private nonisolated static func displayArg(_ arg: String?) -> (UInt32, Int)? {
+        let parts = arg?.split(separator: ",") ?? []
+        guard parts.count == 2, let id = UInt32(parts[0]), let v = Int(parts[1]) else { return nil }
+        return (id, v)
     }
 
     func applicationWillTerminate(_ notification: Notification) {

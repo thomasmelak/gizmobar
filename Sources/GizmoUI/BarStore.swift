@@ -63,4 +63,9 @@ public enum BarRequest {
     public static let toggleMute = "audio.mute.toggle"
     public static func setVolume(_ v: Double) -> String { "audio.volume:\(v)" }
     public static func selectOutput(_ id: UInt32) -> String { "audio.output:\(id)" }
+    public static let refreshDisplays = "displays.refresh"
+    public static let toggleNightShift = "displays.nightshift.toggle"
+    public static func setBrightness(display: UInt32, _ v: Int) -> String { "displays.brightness:\(display),\(v)" }
+    public static func setContrast(display: UInt32, _ v: Int) -> String { "displays.contrast:\(display),\(v)" }
+    public static func setWarmth(_ v: Int) -> String { "displays.warmth:\(v)" }
 }

@@ -56,6 +56,7 @@ public struct BarSnapshot: Sendable, Equatable {
     public var connectivity: Connectivity?
     public var battery: BatteryStatus?
     public var audio: AudioStatus?
+    public var displays: DisplaysStatus?
     /// Last payload per external `gizmo trigger` topic.
     public var triggers: [String: JSONValue] = [:]
 
@@ -107,6 +108,9 @@ public struct BarSnapshot: Sendable, Equatable {
 
         case Topic.audio:
             audio = event.payload.decode(AudioStatus.self)
+
+        case Topic.displays:
+            displays = event.payload.decode(DisplaysStatus.self)
 
         case Topic.clockTick:
             if let t = event.payload["epoch"], case .number(let s) = t { now = Date(timeIntervalSince1970: s) }

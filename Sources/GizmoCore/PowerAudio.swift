@@ -133,3 +133,81 @@ public struct AudioStatus: Sendable, Equatable, Codable {
         return "speaker.wave.1"
     }
 }
+
+/// One display's controls for the Displays popover.
+public struct DisplayState: Sendable, Equatable, Codable, Identifiable {
+    public enum Control: String, Sendable, Codable {
+        /// Built-in and Apple displays, through DisplayServices.
+        case builtin
+        /// External monitors over DDC/CI.
+        case ddc
+        /// Monitors without DDC: dimmed with the gamma table.
+        case software
+    }
+
+    public var id: UInt32
+    public var name: String
+    public var isBuiltIn: Bool
+    public var isMain: Bool
+    public var control: Control
+    /// 0...100
+    public var brightness: Int?
+    /// 0...100, DDC monitors only.
+    public var contrast: Int?
+
+    public init(id: UInt32, name: String, isBuiltIn: Bool, isMain: Bool, control: Control, brightness: Int? = nil, contrast: Int? = nil) {
+        self.id = id
+        self.name = name
+        self.isBuiltIn = isBuiltIn
+        self.isMain = isMain
+        self.control = control
+        self.brightness = brightness
+        self.contrast = contrast
+    }
+}
+
+public struct DisplaysStatus: Sendable, Equatable, Codable {
+    public var displays: [DisplayState]
+    public var nightShift: Bool?
+    /// Night Shift warmth, 0...100.
+    public var warmth: Int?
+
+    public init(displays: [DisplayState], nightShift: Bool? = nil, warmth: Int? = nil) {
+        self.displays = displays
+        self.nightShift = nightShift
+        self.warmth = warmth
+    }
+
+    /// What the bar shows: the main display's brightness.
+    public var main: DisplayState? { displays.first(where: \.isMain) ?? displays.first }
+}
+
+/// DDC/CI packets (VESA MCCS over I²C, as m1ddc and MonitorControl send them).
+public enum DDC {
+    public static let luminance: UInt8 = 0x10
+    public static let contrast: UInt8 = 0x12
+    public static let volume: UInt8 = 0x62
+
+    /// "Get VCP feature" request, written to I²C address 0x37, offset 0x51.
+    public static func getPacket(_ vcp: UInt8) -> [UInt8] {
+        let body: [UInt8] = [0x82, 0x01, vcp]
+        return body + [body.reduce(0x6E, ^)]
+    }
+
+    /// "Set VCP feature" request.
+    public static func setPacket(_ vcp: UInt8, _ value: UInt16) -> [UInt8] {
+        let body: [UInt8] = [0x84, 0x03, vcp, UInt8(value >> 8), UInt8(value & 0xFF)]
+        return body + [body.reduce(0x6E ^ 0x51, ^)]
+    }
+
+    /// Parses an 11-byte "VCP feature reply": (current, max), or nil when the
+    /// reply is for another feature, reports an error, or fails its checksum.
+    public static func parseReply(_ r: [UInt8], vcp: UInt8) -> (current: UInt16, max: UInt16)? {
+        guard r.count >= 11, r[2] == 0x02, r[3] == 0x00, r[4] == vcp else { return nil }
+        let checksum = r[0..<10].reduce(0x50, ^)
+        guard checksum == r[10] else { return nil }
+        let max = UInt16(r[6]) << 8 | UInt16(r[7])
+        let current = UInt16(r[8]) << 8 | UInt16(r[9])
+        return (current, max)
+    }
+}

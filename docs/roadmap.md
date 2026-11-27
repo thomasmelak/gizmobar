@@ -24,7 +24,7 @@ reaches parity.
 - [x] System: CPU, GPU, temperature, RAM, swap, disk, lid angle (in-process), Performance popover
 - [x] Network: speeds from 64-bit counters, Connectivity popover with Wi-Fi/Bluetooth switches
 - [x] Battery: Low Power Mode and No Sleep switches, health, charge limit; Sound: volume slider, mute, output devices
-- [ ] Displays (DDC) and Night Shift
+- [x] Displays: brightness (built-in, DDC, software dimming), contrast over DDC, Night Shift
 - [ ] Theme picker, Tefer Line icons, right-click icon menu
 
 

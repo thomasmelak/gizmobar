@@ -369,3 +369,33 @@ import Testing
         #expect(AudioDevice(id: 3, name: "MacBook Pro Speakers", isCurrent: true).kind == .speaker)
     }
 }
+
+@Suite("Displays")
+struct DisplaysTests {
+    @Test func ddcPackets() {
+        #expect(DDC.getPacket(DDC.luminance) == [0x82, 0x01, 0x10, 0xFD])
+        #expect(DDC.setPacket(DDC.luminance, 50) == [0x84, 0x03, 0x10, 0x00, 0x32, 0x9A])
+    }
+
+    @Test func ddcReply() {
+        var r: [UInt8] = [0x6E, 0x88, 0x02, 0x00, 0x10, 0x00, 0x00, 0x64, 0x00, 0x2A]
+        r.append(r.reduce(0x50, ^))
+        let parsed = DDC.parseReply(r, vcp: DDC.luminance)
+        #expect(parsed?.current == 42)
+        #expect(parsed?.max == 100)
+        #expect(DDC.parseReply(r, vcp: DDC.contrast) == nil)
+        r[10] ^= 0xFF
+        #expect(DDC.parseReply(r, vcp: DDC.luminance) == nil)
+    }
+
+    @Test func mainDisplay() {
+        let s = DisplaysStatus(displays: [
+            DisplayState(id: 1, name: "Built-in", isBuiltIn: true, isMain: false, control: .builtin, brightness: 70),
+            DisplayState(id: 2, name: "LG", isBuiltIn: false, isMain: true, control: .ddc, brightness: 40, contrast: 75),
+        ], nightShift: false, warmth: 50)
+        #expect(s.main?.id == 2)
+        var snap = BarSnapshot()
+        snap.apply(BarEvent(topic: Topic.displays, payload: JSONValue(encoding: s)))
+        #expect(snap.displays == s)
+    }
+}
