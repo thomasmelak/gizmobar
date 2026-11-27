@@ -20,6 +20,8 @@ public actor MediaProvider: Provider {
     private var adapter: Process?
     private var adapterState: [String: JSONValue] = [:]
     private var pollTask: Task<Void, Never>?
+    /// Track key plus art identity (Spotify's artwork URL, the adapter's
+    /// artwork bytes) of the art last loaded per source.
     private var lastArtKey: [String: String] = [:]
     private var history: [String: TrackHistory] = [:]
     private var upNext: [String: [TrackCard]] = [:]
@@ -172,15 +174,25 @@ public actor MediaProvider: Provider {
         let repeatMode: MediaSource.Repeat = id == Self.spotify ? (f[7] == "true" ? .all : .off) : (MediaSource.Repeat(rawValue: f[7]) ?? .off)
         var track = MediaTrack(title: f[0], artist: f[1], album: f[2], duration: Double(f[4].replacingOccurrences(of: ",", with: ".")),
                                elapsed: Double(f[5].replacingOccurrences(of: ",", with: ".")), elapsedAt: Date())
-        keepArt(&track, from: sources[id]?.track)
+        // Spotify can announce a new track before its artwork URL catches
+        // up, so the art is tied to the URL, not just the track.
+        let artID = id == Self.spotify ? f[8] : ""
+        let changed = sources[id]?.track?.key != track.key
+        keepArt(&track, from: sources[id]?.track, artID: artID, id: id)
         record(MediaSource(id: id, name: app, state: state, track: track, shuffle: f[6] == "true", repeatMode: repeatMode))
         await publish()
+        if changed, id == Self.spotify {
+            Task { [weak self] in
+                try? await Task.sleep(for: .seconds(1.5))
+                await self?.refreshPlayer(id)
+            }
+        }
         if track.artworkPath == nil {
             if id == Self.spotify, let url = URL(string: f[8]), !f[8].isEmpty {
-                await loadArt(for: id, key: track.key) { try? await URLSession.shared.data(from: url).0 }
+                await loadArt(for: id, key: track.key, artID: artID) { try? await URLSession.shared.data(from: url).0 }
             } else if id == Self.music {
                 let scripts = self.scripts
-                await loadArt(for: id, key: track.key) {
+                await loadArt(for: id, key: track.key, artID: "") {
                     await scripts.run("tell application \"Music\" to get raw data of artwork 1 of current track") { $0.data }
                 }
             }
@@ -240,7 +252,14 @@ public actor MediaProvider: Provider {
         guard let msg = try? JSONValue(parsing: line), msg["type"]?.string == "data",
               case .object(let payload)? = msg["payload"] else { return }
         let diff: Bool = { if case .bool(let b)? = msg["diff"] { return b }; return false }()
-        if diff { adapterState.merge(payload) { $1 } } else { adapterState = payload }
+        if diff {
+            // A new track whose art hasn't come yet must not keep the last one's.
+            let newTrack = ["title", "artist", "album"].contains { k in payload[k] != nil && payload[k] != adapterState[k] }
+            if newTrack, payload["artworkData"] == nil { adapterState["artworkData"] = nil }
+            adapterState.merge(payload) { $1 }
+        } else {
+            adapterState = payload
+        }
         await applyGeneric(adapterState, art: { s in
             guard let b64 = s["artworkData"]?.string else { return nil }
             return Data(base64Encoded: b64)
@@ -279,12 +298,13 @@ public actor MediaProvider: Provider {
         let playing: Bool = { if case .bool(let b)? = s["playing"] { return b }; return false }()
         var track = MediaTrack(title: title, artist: s["artist"]?.string ?? "", album: s["album"]?.string ?? "",
                                duration: num("duration"), elapsed: num("elapsedTime"), elapsedAt: Date())
-        keepArt(&track, from: sources[id]?.track)
+        let artID = Self.artID(s["artworkData"]?.string)
+        keepArt(&track, from: sources[id]?.track, artID: artID, id: id)
         let name = await MainActor.run { Self.appName(id) }
         record(MediaSource(id: id, name: name, state: playing ? .playing : .paused, track: track))
         await publish()
         if track.artworkPath == nil {
-            await loadArt(for: id, key: track.key) { await art(s) }
+            await loadArt(for: id, key: track.key, artID: artID) { await art(s) }
         }
     }
 
@@ -303,18 +323,28 @@ public actor MediaProvider: Provider {
 
     // MARK: Artwork
 
-    /// Keeps the art of the same track across refreshes.
-    private func keepArt(_ track: inout MediaTrack, from old: MediaTrack?) {
-        guard let old, old.key == track.key else { return }
+    /// A short identity for base64 artwork, to notice when it changes.
+    static func artID(_ b64: String?) -> String {
+        guard let b64, !b64.isEmpty else { return "" }
+        return "\(b64.count):\(fnv1a(String(b64.prefix(4096))))"
+    }
+
+    /// Keeps the art of the same track across refreshes, unless the art
+    /// itself changed (it arrived late or was wrong).
+    private func keepArt(_ track: inout MediaTrack, from old: MediaTrack?, artID: String, id: String) {
+        guard let old, old.key == track.key, lastArtKey[id] == Self.artKey(track.key, artID) || artID.isEmpty else { return }
         track.artworkPath = old.artworkPath
         track.artColor = old.artColor
         track.artGradient = old.artGradient
     }
 
-    private func loadArt(for id: String, key: String, _ fetch: @Sendable () async -> Data?) async {
-        guard lastArtKey[id] != key else { return }
-        lastArtKey[id] = key
-        let file = Self.artDir.appendingPathComponent(String(format: "%016llx", fnv1a(key)))
+    static func artKey(_ key: String, _ artID: String) -> String { artID.isEmpty ? key : key + "\u{1F}" + artID }
+
+    private func loadArt(for id: String, key: String, artID: String, _ fetch: @Sendable () async -> Data?) async {
+        let full = Self.artKey(key, artID)
+        guard lastArtKey[id] != full else { return }
+        lastArtKey[id] = full
+        let file = Self.artDir.appendingPathComponent(String(format: "%016llx", fnv1a(full)))
         if !FileManager.default.fileExists(atPath: file.path) {
             guard let data = await fetch(), !data.isEmpty else { return }
             try? FileManager.default.createDirectory(at: Self.artDir, withIntermediateDirectories: true)
