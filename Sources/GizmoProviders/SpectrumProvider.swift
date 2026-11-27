@@ -104,7 +104,7 @@ public actor SpectrumProvider: Provider {
         closeTap(id)
         let bus = self.bus
         let t = AudioTap(source: id, processes: Array(objects), bands: bands) { levels in
-            Task { await bus?.publish(topic: Topic.spectrum, payload: JSONValue(encoding: SourceSpectrum(source: id, levels: levels))) }
+            Task { await bus?.publish(topic: Topic.spectrum, key: id, payload: JSONValue(encoding: SourceSpectrum(source: id, levels: levels))) }
         }
         do {
             try t.start()
@@ -122,7 +122,7 @@ public actor SpectrumProvider: Provider {
         taps[id] = nil
         tapProcesses[id] = nil
         let bus = self.bus
-        Task { await bus?.publish(topic: Topic.spectrum, payload: JSONValue(encoding: SourceSpectrum(source: id, levels: []))) }
+        Task { await bus?.publish(topic: Topic.spectrum, key: id, payload: JSONValue(encoding: SourceSpectrum(source: id, levels: []))) }
     }
 
     private func publishSources() async {
