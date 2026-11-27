@@ -648,6 +648,9 @@ struct MediaTests {
     @Test func mediaSettings() throws {
         let c = try GizmoConfig.parse("[media]\nspectrum = false\nbands = 200")
         #expect(c.media.spectrum == false)
+        #expect(c.media.visualizer == .ridgeline)
+        #expect(try GizmoConfig.parse("[media]\nvisualizer = \"Bars\"").media.visualizer == .bars)
+        #expect(try GizmoConfig.parse("[media]\nvisualizer = \"nope\"").media.visualizer == .ridgeline)
         #expect(c.media.bands == 64)
         #expect(try GizmoConfig.parse("").layout.right.first == "now_playing")
     }

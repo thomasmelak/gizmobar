@@ -1,5 +1,16 @@
 import Foundation
 
+/// How the now playing visualizer draws.
+public enum VisualizerStyle: String, Sendable, Codable, CaseIterable {
+    /// The spectrum leaves a trail of ridges sliding back into depth,
+    /// mirrored with the bass in the middle.
+    case ridgeline
+    /// Classic cava bars, flat.
+    case bars
+    /// No visualizer.
+    case off
+}
+
 /// `[media]` in config.toml.
 public struct MediaSettings: Sendable, Equatable, Decodable {
     /// Folder holding `mediaremote-adapter.pl` and `MediaRemoteAdapter.framework`
@@ -14,15 +25,20 @@ public struct MediaSettings: Sendable, Equatable, Decodable {
     public var bands: Int
     /// Width of the track text on the bar, in points.
     public var width: Double
+    /// How the visualizer draws: `ridgeline` (3D ridges, the default),
+    /// `bars` (flat cava bars) or `off`.
+    public var visualizer: VisualizerStyle
 
-    public init(adapter: String? = nil, spectrum: Bool = true, bands: Int = 24, width: Double = 156) {
+    public init(adapter: String? = nil, spectrum: Bool = true, bands: Int = 24, width: Double = 156,
+                visualizer: VisualizerStyle = .ridgeline) {
         self.adapter = adapter
         self.spectrum = spectrum
         self.bands = bands
         self.width = width
+        self.visualizer = visualizer
     }
 
-    enum CodingKeys: String, CodingKey { case adapter, spectrum, bands, width }
+    enum CodingKeys: String, CodingKey { case adapter, spectrum, bands, width, visualizer }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -31,6 +47,8 @@ public struct MediaSettings: Sendable, Equatable, Decodable {
         spectrum = try c.decodeIfPresent(Bool.self, forKey: .spectrum) ?? d.spectrum
         bands = min(max(try c.decodeIfPresent(Int.self, forKey: .bands) ?? d.bands, 4), 64)
         width = try c.decodeIfPresent(Double.self, forKey: .width) ?? d.width
+        let style = try c.decodeIfPresent(String.self, forKey: .visualizer)
+        visualizer = style.flatMap { VisualizerStyle(rawValue: $0.lowercased()) } ?? d.visualizer
     }
 }
 
