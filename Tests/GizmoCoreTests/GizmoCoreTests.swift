@@ -741,3 +741,55 @@ struct AutoHideTests {
         #expect(try GizmoConfig.parse("[bar]\nautohide = \"never\"").bar.autohide == .never)
     }
 }
+
+@Suite struct AudioFrameHubTests {
+    @Test func readsLatestSamplesOldestFirst() {
+        let hub = AudioFrameHub()
+        hub.write(source: "a", samples: (0..<10).map(Float.init), sampleRate: 48_000)
+        var out = [Float](repeating: -1, count: 4)
+        let w = hub.read(source: "a", into: &out)
+        #expect(out == [6, 7, 8, 9])
+        #expect(w?.written == 10)
+        #expect(w?.sampleRate == 48_000)
+        #expect(hub.read(source: "b", into: &out) == nil)
+    }
+
+    @Test func wrapsAroundTheRing() {
+        let hub = AudioFrameHub()
+        let cap = AudioFrameHub.capacity
+        hub.write(source: "a", samples: [Float](repeating: 1, count: cap - 2), sampleRate: 44_100)
+        hub.write(source: "a", samples: [2, 3, 4, 5], sampleRate: 44_100)
+        var out = [Float](repeating: 0, count: 5)
+        let w = hub.read(source: "a", into: &out)
+        #expect(out == [1, 2, 3, 4, 5])
+        #expect(w?.written == UInt64(cap + 2))
+    }
+
+    @Test func oversizedChunkKeepsNewest() {
+        let hub = AudioFrameHub()
+        let cap = AudioFrameHub.capacity
+        hub.write(source: "a", samples: (0..<(cap + 3)).map(Float.init), sampleRate: 48_000)
+        var out = [Float](repeating: 0, count: 2)
+        hub.read(source: "a", into: &out)
+        #expect(out == [Float(cap + 1), Float(cap + 2)])
+    }
+
+    @Test func tracksLevelsAndRecentSources() {
+        let hub = AudioFrameHub()
+        let t0 = Date(timeIntervalSince1970: 1_000)
+        hub.write(source: "loud", samples: [0.5, -0.5], sampleRate: 48_000, at: t0)
+        hub.write(source: "quiet", samples: [0, 0], sampleRate: 48_000, at: t0.addingTimeInterval(1))
+        let loud = hub.source("loud")
+        #expect(loud?.level == 0.5)
+        #expect(loud?.peak == 0.5)
+        #expect(loud?.lastHeard == t0)
+        #expect(hub.source("quiet")?.lastHeard == .distantPast)
+        #expect(loud?.isActive(at: t0.addingTimeInterval(0.2)) == true)
+        #expect(loud?.isActive(at: t0.addingTimeInterval(2)) == false)
+        // Most recently heard first; quiet sources stay listed.
+        #expect(hub.sources(within: 300, at: t0.addingTimeInterval(2)).map(\.id) == ["loud", "quiet"])
+        #expect(hub.sources(within: 300, at: t0.addingTimeInterval(400)).isEmpty)
+        hub.remove(source: "loud")
+        #expect(hub.source("loud") == nil)
+    }
+}
