@@ -159,9 +159,9 @@ App icons resolve per bundle ID: per-app override, then `style = "system"`
 for real macOS icons everywhere, otherwise your custom pack, then the other
 packs in order, then the fallback you pick.
 
-The custom pack is whichever pack `custom_pack` names (Tefer Line by
-default). Start your own with `gizmo icons init my-icons`, drop
-`<bundle-id>.svg` files into it, and the bar picks them up live, no reload.
+The custom pack is whichever pack `custom_pack` names (Custom Icons by
+default, then Tefer Line). Start your own with `gizmo icons init my-icons`,
+drop `<bundle-id>.svg` files into it, and the bar picks them up live, no reload.
 
 ## Layout
 

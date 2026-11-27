@@ -6,7 +6,7 @@ import Testing
     @Test func emptyCustomPackDisablesIt() throws {
         let c = try GizmoConfig.parse("[icons]\ncustom_pack = \"\"")
         #expect(c.icons.customPack == nil)
-        #expect(c.icons.packOrder == ["sketchybar-app-font"])
+        #expect(c.icons.packOrder == ["tefer-line", "sketchybar-app-font"])
     }
 
     @Test func emptyConfigUsesDefaults() throws {
@@ -54,7 +54,7 @@ import Testing
         #expect(c.launchAtLogin)
         #expect(c.layout.center == ["front_app"])
         #expect(c.icons.style == .system)
-        #expect(c.icons.packOrder == ["my-icons", "sketchybar-app-font"])
+        #expect(c.icons.packOrder == ["my-icons", "tefer-line", "sketchybar-app-font"])
         #expect(c.icons.fallback == .monogram)
         #expect(c.icons.apps["dev.zed.Zed"]?.file == "~/icons/zed.svg")
         #expect(c.logo == LogoSettings(image: "~/logo.svg", text: "tefer", tint: "accent"))
@@ -483,6 +483,24 @@ struct ConfigEditorTests {
         try ConfigEditor.update("theme", ConfigEditor.string("nord"), file: link)
         #expect(try FileManager.default.destinationOfSymbolicLink(atPath: link.path) == real.path)
         #expect(try String(contentsOf: real, encoding: .utf8).contains("theme = \"nord\""))
+    }
+}
+
+@Suite("Bundled icon packs")
+struct BundledIconPackTests {
+    let dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        .deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("icon-packs")
+
+    @Test func customIconsIsTheDefaultAndConsistent() throws {
+        #expect(IconSettings().customPack == "custom-icons")
+        let pack = try #require(IconPack.loadAll(from: [dir])["custom-icons"])
+        #expect(pack.manifest.kind == .svg)
+        #expect(pack.svgBundleIDs.count == 81)
+        #expect(Set(pack.colors.keys) == pack.svgBundleIDs)
+        #expect(Set(pack.aliases.values).isSubset(of: pack.svgBundleIDs))
+        let r = IconResolver(settings: IconSettings(), packs: IconPack.loadAll(from: [dir]))
+        #expect(r.resolve(bundleID: "com.mitchellh.ghostty", appName: "Ghostty").source == "custom-icons")
+        #expect(r.resolve(bundleID: "com.microsoft.VSCode", appName: "Code").source == "custom-icons")
     }
 }
 

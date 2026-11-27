@@ -7,7 +7,13 @@ change under `icon-packs/` (a new SVG, an edited color) applies live.
 
 Start a new one with `gizmo icons init <id>`.
 
-- `tefer-line/`: the default custom pack. Single-color SVGs on a 24 grid with a
+- `custom-icons/`: the default custom pack. One line icon for every app
+  installed on the author's Mac (everything in `/Applications`, the Chrome
+  web apps in `~/Applications`) plus the core macOS apps, 81 in all. Same
+  grid and stroke as Tefer Line, so the two mix cleanly. `aliases.json` also
+  carries the app-name variants from SketchyBar's `icon_map_fn.sh` (Code,
+  iTerm2, Proton VPN...). Brand colors are in `colors.json`.
+- `tefer-line/`: tried after Custom Icons. Single-color SVGs on a 24 grid with a
   1.5 stroke (Phosphor Light style), named by bundle ID, `fill="currentColor"`.
   `colors.json` carries the brand colors from SketchyBar's `app_colors.sh`,
   and the first 27 icons cover exactly those apps. Right-click any icon on
