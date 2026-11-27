@@ -490,3 +490,66 @@ struct AppUsageTests {
         #expect(u.ranked.map(\.bundleID) == ["a", "b"])
     }
 }
+
+@Suite("Media")
+struct MediaTests {
+    let spotify = MediaSource(id: "com.spotify.client", name: "Spotify", state: .paused, track: MediaTrack(title: "A"))
+    let chrome = MediaSource(id: "com.google.Chrome", name: "Chrome", state: .playing, track: MediaTrack(title: "B"))
+
+    @Test func choosesPlayingThenPicked() {
+        #expect(NowPlayingStatus.choose([spotify, chrome], picked: nil) == chrome.id)
+        #expect(NowPlayingStatus.choose([spotify, chrome], picked: spotify.id) == spotify.id)
+        #expect(NowPlayingStatus.choose([spotify], picked: "gone") == spotify.id)
+        #expect(NowPlayingStatus.choose([], picked: nil) == nil)
+    }
+
+    @Test func positionMovesOnWhilePlaying() {
+        let t0 = Date(timeIntervalSince1970: 0)
+        var s = MediaSource(id: "x", name: "X", state: .playing,
+                            track: MediaTrack(title: "T", duration: 100, elapsed: 10, elapsedAt: t0))
+        #expect(s.position(at: t0.addingTimeInterval(5)) == 15)
+        #expect(s.position(at: t0.addingTimeInterval(500)) == 100)
+        s.state = .paused
+        #expect(s.position(at: t0.addingTimeInterval(5)) == 10)
+    }
+
+    @Test func snapshotAppliesNowPlaying() {
+        var snap = BarSnapshot()
+        let status = NowPlayingStatus(sources: [chrome], selected: chrome.id)
+        snap.apply(BarEvent(topic: Topic.media, payload: JSONValue(encoding: status)))
+        #expect(snap.nowPlaying.current?.track?.title == "B")
+        snap.apply(BarEvent(topic: Topic.spectrum, payload: .array([.number(0.5), .number(1)])))
+        #expect(snap.spectrum == [0.5, 1])
+    }
+
+    @Test func artColorPicksSaturatedMajority() throws {
+        // 3 red pixels, 1 black, 1 white, 1 grey: red wins.
+        let px: [UInt8] = [220, 30, 40, 255, 220, 30, 40, 255, 210, 35, 45, 255,
+                           0, 0, 0, 255, 255, 255, 255, 255, 128, 128, 128, 255]
+        let c = try #require(ArtColor.dominant(rgba: px))
+        #expect(c.r > 0.7 && c.g < 0.3)
+        #expect(ArtColor.dominant(rgba: [0, 0, 0, 255]) == nil)
+        let light = ArtColor.readable(RGBA(r: 0.3, g: 0.05, b: 0.05))
+        #expect(light.r > 0.6)
+        #expect(ArtColor.hex(RGBA(r: 1, g: 0, b: 0.5)) == "#ff0080")
+    }
+
+    @Test func spectrumBands() {
+        // A loud bin near 1 kHz at 48 kHz / 1024-point FFT (46.875 Hz bins).
+        var power = [Float](repeating: 0, count: 512)
+        power[21] = Float(512 * 512)
+        let b = Spectrum.bands(power: power, sampleRate: 48_000, count: 12)
+        #expect(b.count == 12)
+        #expect(b.max() == 1)
+        #expect(b.first == 0)
+        let s = Spectrum.smooth([0, 1], [1, 0])
+        #expect(s[0] > 0.5 && s[1] > 0.8)
+    }
+
+    @Test func mediaSettings() throws {
+        let c = try GizmoConfig.parse("[media]\nspectrum = false\nbands = 200")
+        #expect(c.media.spectrum == false)
+        #expect(c.media.bands == 64)
+        #expect(try GizmoConfig.parse("").layout.right.first == "now_playing")
+    }
+}

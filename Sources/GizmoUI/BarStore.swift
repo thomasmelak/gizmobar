@@ -75,6 +75,13 @@ public enum BarRequest {
     public static func setAppIconStyle(_ bundleID: String, _ style: IconSettings.Style) -> String { "icons.app.style:\(bundleID),\(style.rawValue)" }
     public static func chooseAppIconFile(_ bundleID: String) -> String { "icons.app.file:\(bundleID)" }
     public static func resetAppIcon(_ bundleID: String) -> String { "icons.app.reset:\(bundleID)" }
+    public static let mediaToggle = "media.toggle"
+    public static let mediaNext = "media.next"
+    public static let mediaPrevious = "media.previous"
+    public static let mediaShuffle = "media.shuffle"
+    public static let mediaRepeat = "media.repeat"
+    public static func mediaSeek(_ seconds: Double) -> String { "media.seek:\(seconds)" }
+    public static func mediaSelect(_ id: String) -> String { "media.select:\(id)" }
     public static func setTheme(_ id: String) -> String { "theme.set:\(id)" }
     public static func setWarmth(_ v: Int) -> String { "displays.warmth:\(v)" }
 }

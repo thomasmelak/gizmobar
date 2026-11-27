@@ -141,6 +141,7 @@ enum WidgetRegistry {
         case "brightness": BrightnessWidget()
         case "volume": VolumeWidget()
         case "theme": ThemeWidget()
+        case "now_playing": NowPlayingWidget()
         default: MissingWidget(id: id)
         }
     }

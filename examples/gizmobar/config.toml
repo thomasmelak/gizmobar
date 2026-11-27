@@ -14,7 +14,7 @@ glass = true          # glass pills on a transparent bar
 [layout]
 left = ["logo", "workspaces"]
 center = ["front_app"]
-right = ["network", "system", "battery", "brightness", "volume", "theme", "clock"]
+right = ["now_playing", "network", "system", "battery", "brightness", "volume", "theme", "clock"]
 
 [logo]
 # image = "~/.config/gizmobar/logo.svg"   # default: the Gizmobar app icon
@@ -65,3 +65,9 @@ debug_fallbacks = false
 "com.spotify.client" = { style = "system" }
 # "dev.zed.Zed" = { file = "~/icons/zed.svg" }
 # "com.tinyspeck.slackmacgap" = { glyph = "slack", color = "#e01e5a" }
+
+[media]
+# adapter = "~/.local/share/mediaremote-adapter"   # any app's media (browsers...), see README
+spectrum = true        # live bars from a Core Audio tap; false = animated bars
+bands = 24
+width = 156

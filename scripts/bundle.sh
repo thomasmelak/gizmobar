@@ -25,5 +25,5 @@ cp -R themes "$OUT/Contents/Resources/themes"
 cp Resources/AppIcon/AppIcon.icns "$OUT/Contents/Resources/AppIcon.icns"
 
 codesign --force --options runtime --sign "${SIGN_IDENTITY:--}" "$OUT/Contents/MacOS/gizmo"
-codesign --force --options runtime --sign "${SIGN_IDENTITY:--}" "$OUT"
+codesign --force --options runtime --entitlements Resources/Gizmobar.entitlements --sign "${SIGN_IDENTITY:--}" "$OUT"
 echo "built $OUT"
