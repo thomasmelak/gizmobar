@@ -5,11 +5,14 @@ import CoreGraphics
 public enum AutoHideRules {
     /// True when a normal window covers the whole display (a fullscreen app
     /// or a fullscreen video). `windows` are on-screen layer-0 window bounds
-    /// and `display` the display's bounds, both in the same coordinates.
-    public static func isFullscreen(windows: [CGRect], display: CGRect) -> Bool {
+    /// and `display` the display's bounds, both in the same coordinates
+    /// (top-left origin). On a display with a camera notch, fullscreen
+    /// windows start below it: `topInset` is that strip's height.
+    public static func isFullscreen(windows: [CGRect], display: CGRect, topInset: CGFloat = 0) -> Bool {
         windows.contains { w in
-            abs(w.minX - display.minX) < 1 && abs(w.minY - display.minY) < 1
-                && abs(w.width - display.width) < 1 && abs(w.height - display.height) < 1
+            let top = abs(w.minY - display.minY) < 1 || (topInset > 0 && abs(w.minY - (display.minY + topInset)) < 1)
+            return top && abs(w.minX - display.minX) < 1 && abs(w.width - display.width) < 1
+                && abs(w.maxY - display.maxY) < 1
         }
     }
 

@@ -12,22 +12,27 @@ struct PopupHeader<Trailing: View>: View {
     var action: (@MainActor () -> Void)?
     @ViewBuilder var trailing: Trailing
     @Environment(BarStore.self) private var store
+    @Environment(PopoverPin.self) private var pin: PopoverPin?
     @State private var hovering = false
 
     var body: some View {
         let t = store.theme
-        HStack(spacing: 0) {
-            Image(systemName: icon)
-                .font(.system(size: 16, weight: .light))
-                .frame(width: 36, alignment: .leading)
-            Text(title)
-                .font(.custom(t.font, size: t.fontSize + 1).weight(.semibold))
-            Spacer(minLength: 16)
-            trailing
+        HStack(spacing: 8) {
+            HStack(spacing: 0) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .light))
+                    .frame(width: 36, alignment: .leading)
+                Text(title)
+                    .font(.custom(t.font, size: t.fontSize + 1).weight(.semibold))
+                Spacer(minLength: 16)
+                trailing
+            }
+            .foregroundStyle(Color(hex: hovering && action != nil ? t.label : t.accent))
+            .barAction(onHover: { hovering = $0 }, action)
+            if pin != nil { PinButton() }
         }
-        .foregroundStyle(Color(hex: hovering && action != nil ? t.label : t.accent))
         .padding(.bottom, 4)
-        .barAction(onHover: { hovering = $0 }, action)
+        .preference(key: HeaderPinKey.self, value: pin != nil)
     }
 }
 
@@ -46,6 +51,7 @@ struct PopupRow<Accessory: View>: View {
     var action: (@MainActor () -> Void)?
     @ViewBuilder var accessory: Accessory
     @Environment(BarStore.self) private var store
+    @Environment(PopoverPin.self) private var pin: PopoverPin?
     @State private var hovering = false
 
     var body: some View {

@@ -80,7 +80,7 @@ public final class PanelManager {
             let windows = mode == .fullscreen ? Self.normalWindowBounds() : []
             for screen in panels.keys {
                 guard let id = screen.displayID else { continue }
-                if mode == .always || AutoHideRules.isFullscreen(windows: windows, display: CGDisplayBounds(id)) {
+                if mode == .always || AutoHideRules.isFullscreen(windows: windows, display: CGDisplayBounds(id), topInset: screen.safeAreaInsets.top) {
                     hidden.insert(id)
                 }
             }

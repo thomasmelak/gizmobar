@@ -156,7 +156,11 @@ struct RightClickArea: NSViewRepresentable {
 
 struct NowPlayingPopover: View {
     @Environment(BarStore.self) private var store
-    @State private var showLyrics = false
+
+    /// Art and controls on the left, lyrics and the visualizer on the right.
+    static let left: CGFloat = 220
+    static let right: CGFloat = 270
+    static let gap: CGFloat = 16
 
     var body: some View {
         let t = store.theme
@@ -172,99 +176,129 @@ struct NowPlayingPopover: View {
                 switch shown {
                 case .media(let source):
                     if let track = source.track {
-                        let tint = track.artColor ?? t.accent
-                        if showLyrics, let lyrics = store.snapshot.lyrics, lyrics.key == track.key {
-                            LyricsView(lyrics: lyrics, source: source, tint: tint)
-                                .transition(.opacity)
-                        } else {
-                            ArtCarousel(source: source, track: track, tint: tint)
-                                .frame(maxWidth: .infinity)
-                                .transition(.opacity)
-                        }
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(track.title).font(.custom(t.font, size: t.fontSize + 2).bold()).lineLimit(2)
-                            if !track.artist.isEmpty { Text(track.artist).foregroundStyle(Color(hex: tint)).lineLimit(1) }
-                            if !track.album.isEmpty { Text(track.album).foregroundStyle(Color(hex: t.label).opacity(0.7)).lineLimit(1) }
-                        }
-                        .id(track.key)
-                        .transition(.opacity)
-                        Scrubber(source: source, tint: tint)
-                        Controls(source: source, tint: tint)
-                        if let lyrics = store.snapshot.lyrics, lyrics.key == track.key, !lyrics.lines.isEmpty {
-                            LyricsPeek(lyrics: lyrics, source: source, tint: tint, open: showLyrics) {
-                                withAnimation(.easeInOut(duration: 0.25)) { showLyrics.toggle() }
-                            }
-                        }
-                        AudioVisualizer(source: source.id, playing: source.isPlaying, colors: track.artGradient ?? [tint], cornerRadius: 10)
-                            .frame(height: 88)
-                        if source.id == "com.spotify.client", store.snapshot.spotify.configured {
-                            SpotifySection(tint: tint)
-                        }
+                        MediaPane(source: source, track: track)
                     }
                 case .audio(let source):
-                    VStack(spacing: 10) {
-                        AppIconView(app: AppRef(bundleID: source.id, name: source.name), size: 96)
-                        Text(source.name).font(.custom(t.font, size: t.fontSize + 2).bold()).lineLimit(1)
-                        Text(source.isActive ? "Playing sound" : "Quiet")
-                            .foregroundStyle(Color(hex: t.label).opacity(0.7))
+                    HStack(alignment: .center, spacing: Self.gap) {
+                        VStack(spacing: 10) {
+                            AppIconView(app: AppRef(bundleID: source.id, name: source.name), size: 96)
+                            Text(source.name).font(.custom(t.font, size: t.fontSize + 2).bold()).lineLimit(1)
+                            Text(source.isActive ? "Playing sound" : "Quiet")
+                                .foregroundStyle(Color(hex: t.label).opacity(0.7))
+                        }
+                        .frame(width: Self.left)
+                        AudioVisualizer(source: source.id, playing: source.isActive, colors: [t.accent], cornerRadius: 10)
+                            .frame(width: Self.right, height: 180)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                    AudioVisualizer(source: source.id, playing: source.isActive, colors: [t.accent], cornerRadius: 10)
-                        .frame(height: 110)
                 }
             }
-            .frame(width: 260)
+            .frame(width: Self.left + Self.gap + Self.right)
             .animation(.easeInOut(duration: 0.35), value: shown.id)
         }
     }
 }
 
-/// The line being sung and the next one, or a button for plain lyrics.
-/// Click to swap the album art for the full lyrics.
-private struct LyricsPeek: View {
-    let lyrics: Lyrics
+/// A player's track: art, title, seek bar and controls on the left; lyrics
+/// (or Spotify playlists) above the visualizer on the right.
+private struct MediaPane: View {
     let source: MediaSource
+    let track: MediaTrack
+    @Environment(BarStore.self) private var store
+    @State private var tab: Tab = .lyrics
+
+    enum Tab { case lyrics, playlists }
+
+    var body: some View {
+        let t = store.theme
+        let tint = track.artColor ?? t.accent
+        let lyrics = store.snapshot.lyrics.flatMap { $0.key == track.key ? $0 : nil }
+        let sp = store.snapshot.spotify
+        let spotify = source.id == "com.spotify.client" && sp.configured
+        let showPlaylists = spotify && sp.signedIn && tab == .playlists
+        HStack(alignment: .top, spacing: NowPlayingPopover.gap) {
+            VStack(alignment: .leading, spacing: 10) {
+                // Neighbors only when the player shares its real queue;
+                // otherwise just the current art.
+                if let next = source.upNext, !next.isEmpty {
+                    ArtCarousel(source: source, track: track, tint: tint)
+                } else {
+                    ArtView(path: track.artworkPath, key: track.key, tint: tint, size: ArtCarousel.size) {
+                        store.request(BarRequest.mediaToggle)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: ArtCarousel.size + 20)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(track.title).font(.custom(t.font, size: t.fontSize + 2).bold()).lineLimit(2)
+                    if !track.artist.isEmpty { Text(track.artist).foregroundStyle(Color(hex: tint)).lineLimit(1) }
+                    if !track.album.isEmpty { Text(track.album).foregroundStyle(Color(hex: t.label).opacity(0.7)).lineLimit(1) }
+                }
+                .id(track.key)
+                .transition(.opacity)
+                Scrubber(source: source, tint: tint)
+                Controls(source: source, tint: tint)
+            }
+            .frame(width: NowPlayingPopover.left)
+
+            VStack(alignment: .leading, spacing: 10) {
+                if spotify && sp.signedIn {
+                    PaneTabs(tab: $tab, tint: tint, user: sp.user)
+                }
+                if showPlaylists {
+                    PlaylistList(tint: tint)
+                } else if let lyrics, lyrics.instrumental {
+                    Label("Instrumental", systemImage: "music.quarternote.3")
+                        .foregroundStyle(Color(hex: t.label).opacity(0.7))
+                } else if let lyrics, !lyrics.lines.isEmpty {
+                    LyricsView(lyrics: lyrics, source: source, tint: tint)
+                }
+                AudioVisualizer(source: source.id, playing: source.isPlaying, colors: track.artGradient ?? [tint], cornerRadius: 10)
+                    .frame(minHeight: 88, maxHeight: .infinity)
+                if spotify && !sp.signedIn {
+                    SpotifySignIn()
+                }
+            }
+            .frame(width: NowPlayingPopover.right)
+            .frame(maxHeight: .infinity, alignment: .top)
+        }
+        // Both columns take the taller one's height; the visualizer fills
+        // what the right one has left.
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// Lyrics or playlists, for a signed-in Spotify.
+private struct PaneTabs: View {
+    @Binding var tab: MediaPane.Tab
     let tint: String
-    let open: Bool
-    let toggle: @MainActor () -> Void
+    let user: String?
     @Environment(BarStore.self) private var store
 
     var body: some View {
         let t = store.theme
-        TimelineView(.periodic(from: .now, by: source.isPlaying && lyrics.isSynced ? 0.25 : 3600)) { tl in
-            let i = lyrics.index(at: source.position(at: tl.date) ?? 0)
-            HStack(alignment: .top, spacing: 8) {
-                Image(systemName: open ? "photo" : "quote.bubble")
-                    .foregroundStyle(Color(hex: tint))
-                    .frame(width: 18)
-                VStack(alignment: .leading, spacing: 2) {
-                    if lyrics.instrumental {
-                        Text("Instrumental").foregroundStyle(Color(hex: t.label).opacity(0.7))
-                    } else if let i, !open {
-                        Text(lyrics.lines[i].text.isEmpty ? "♪" : lyrics.lines[i].text)
-                            .foregroundStyle(Color(hex: t.label)).bold()
-                        if i + 1 < lyrics.lines.count {
-                            Text(lyrics.lines[i + 1].text).foregroundStyle(Color(hex: t.label).opacity(0.5))
-                        }
-                    } else {
-                        Text(open ? "Show artwork" : "Lyrics").foregroundStyle(Color(hex: t.label).opacity(0.8))
-                    }
-                }
-                .font(.system(size: 11))
-                .lineLimit(1)
-                .id(i)
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
-                Spacer(minLength: 0)
+        HStack(spacing: 6) {
+            button("Lyrics", .lyrics, t)
+            button("Playlists", .playlists, t)
+            Spacer(minLength: 6)
+            if let user {
+                Text(user).font(.system(size: 10)).foregroundStyle(Color(hex: t.label).opacity(0.6)).lineLimit(1)
             }
-            .animation(.easeOut(duration: 0.25), value: i)
         }
-        .barAction(toggle)
+    }
+
+    private func button(_ title: String, _ value: MediaPane.Tab, _ t: Theme) -> some View {
+        let on = tab == value
+        return Text(title)
+            .font(.system(size: 11, weight: on ? .semibold : .regular))
+            .foregroundStyle(Color(hex: on ? tint : t.label).opacity(on ? 1 : 0.7))
+            .padding(.horizontal, 10).padding(.vertical, 3)
+            .background(Capsule().fill(Color(hex: tint).opacity(on ? 0.18 : 0)))
+            .barAction { withAnimation(.easeInOut(duration: 0.2)) { tab = value } }
     }
 }
 
-/// All the lyrics in the art's place, following the track when synced.
-/// Click a synced line to jump there.
+/// All the lyrics, following the track when synced. Click a synced line
+/// to jump there.
 private struct LyricsView: View {
     let lyrics: Lyrics
     let source: MediaSource
@@ -289,7 +323,7 @@ private struct LyricsView: View {
                                 }
                         }
                     }
-                    .padding(.vertical, 90)
+                    .padding(.vertical, 80)
                 }
                 .onChange(of: current) { _, i in
                     if let i { withAnimation(.easeInOut(duration: 0.35)) { proxy.scrollTo(i, anchor: .center) } }
@@ -297,52 +331,47 @@ private struct LyricsView: View {
                 .onAppear { if let current { proxy.scrollTo(current, anchor: .center) } }
             }
         }
-        .frame(height: 220)
+        .frame(height: 200)
         .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.15),
                                      .init(color: .black, location: 0.85), .init(color: .clear, location: 1)],
                              startPoint: .top, endPoint: .bottom))
     }
 }
 
-/// Spotify sign-in, then your playlists (click one to play it).
-private struct SpotifySection: View {
-    let tint: String
+/// The Spotify sign-in row, shown until you're signed in.
+private struct SpotifySignIn: View {
     @Environment(BarStore.self) private var store
-    @State private var open = false
 
     var body: some View {
         let t = store.theme
         let sp = store.snapshot.spotify
-        PopupDivider()
-        if !sp.signedIn {
-            PopupRow(icon: "person.crop.circle.badge.plus",
-                     text: sp.signingIn ? "Finish signing in in your browser…" : "Sign in to Spotify",
-                     color: sp.signingIn ? t.workspaceIcon : nil,
-                     action: sp.signingIn ? nil : { store.request(BarRequest.spotifyLogin) })
-            if let e = sp.error {
-                Text(e).font(.system(size: 10)).foregroundStyle(Color(hex: t.label).opacity(0.6)).lineLimit(2)
-            }
-        } else {
-            PopupRow(icon: open ? "chevron.up" : "music.note.list", text: "Playlists", action: {
-                withAnimation(.easeInOut(duration: 0.2)) { open.toggle() }
-            }) {
-                if let user = sp.user {
-                    Text(user).font(.system(size: 10)).foregroundStyle(Color(hex: t.label).opacity(0.6))
+        PopupRow(icon: "person.crop.circle.badge.plus",
+                 text: sp.signingIn ? "Finish signing in in your browser…" : "Sign in to Spotify",
+                 color: sp.signingIn ? t.workspaceIcon : nil,
+                 action: sp.signingIn ? nil : { store.request(BarRequest.spotifyLogin) })
+        if let e = sp.error {
+            Text(e).font(.system(size: 10)).foregroundStyle(Color(hex: t.label).opacity(0.6)).lineLimit(2)
+        }
+    }
+}
+
+/// Your Spotify playlists (click one to play it), then sign out.
+private struct PlaylistList: View {
+    let tint: String
+    @Environment(BarStore.self) private var store
+
+    var body: some View {
+        let t = store.theme
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(store.snapshot.spotify.playlists) { p in
+                    PlaylistRow(playlist: p, tint: tint)
                 }
-            }
-            if open {
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(sp.playlists) { p in
-                            PlaylistRow(playlist: p, tint: tint)
-                        }
-                        PopupRow(icon: "rectangle.portrait.and.arrow.right", text: "Sign out of Spotify", color: t.workspaceIcon,
-                                 action: { store.request(BarRequest.spotifyLogout) })
-                    }
-                }
-                .frame(height: min(200, CGFloat(sp.playlists.count + 1) * 30))
+                PopupRow(icon: "rectangle.portrait.and.arrow.right", text: "Sign out of Spotify", color: t.workspaceIcon,
+                         action: { store.request(BarRequest.spotifyLogout) })
             }
         }
+        .frame(height: 200)
     }
 }
 
@@ -378,9 +407,13 @@ private struct PlaylistRow: View {
 
 /// Every player with a track and every app heard in the last 10 minutes,
 /// playing ones first, each with a small live visualizer. Click to show it.
+/// Folds into one line with the apps' icons.
 private struct SourceList: View {
     let shown: String
     @Environment(BarStore.self) private var store
+    /// Collapsed to one line until opened; remembered between popovers.
+    @AppStorage("nowPlaying.sourcesOpen") private var open = false
+    @State private var hovering = false
 
     struct Row: Identifiable {
         let id: String
@@ -406,14 +439,41 @@ private struct SourceList: View {
     }
 
     var body: some View {
+        let t = store.theme
         let rows = self.rows
+        let playing = rows.filter(\.playing).count
         if rows.count > 1 {
             VStack(alignment: .leading, spacing: 4) {
-                ForEach(rows) { r in
-                    SourceRow(row: r, selected: r.id == shown) {
-                        store.pickedSource = r.id
-                        if r.isMedia { store.request(BarRequest.mediaSelect(r.id)) }
+                HStack(spacing: 8) {
+                    HStack(spacing: -5) {
+                        ForEach(rows.prefix(4)) { r in
+                            AppIconView(app: AppRef(bundleID: r.id, name: r.name), size: 16)
+                        }
                     }
+                    Text("\(rows.count) sources")
+                        .foregroundStyle(Color(hex: t.label).opacity(hovering ? 1 : 0.75))
+                    if playing > 0 {
+                        Text("· \(playing) playing").foregroundStyle(Color(hex: t.label).opacity(0.5))
+                    }
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 10, weight: .semibold))
+                        .rotationEffect(.degrees(open ? 180 : 0))
+                        .foregroundStyle(Color(hex: t.label).opacity(0.6))
+                }
+                .font(.system(size: 11))
+                .frame(height: 20)
+                .barAction(onHover: { hovering = $0 }) {
+                    withAnimation(.easeInOut(duration: 0.2)) { open.toggle() }
+                }
+                if open {
+                    ForEach(rows) { r in
+                        SourceRow(row: r, selected: r.id == shown) {
+                            store.pickedSource = r.id
+                            if r.isMedia { store.request(BarRequest.mediaSelect(r.id)) }
+                        }
+                    }
+                    .transition(.opacity)
                 }
             }
             PopupDivider()

@@ -4,10 +4,13 @@ import GizmoCore
 
 /// Popovers are child panels anchored to their item: glass, themed, clamped
 /// to the screen, above the bar (below it for a top bar). One is open at a
-/// time; clicking anywhere outside closes it.
+/// time; clicking anywhere outside closes it unless it's pinned.
 @MainActor
 final class PopoverController {
     static let shared = PopoverController()
+
+    /// Whether the open popover ignores outside clicks.
+    let pin = PopoverPin()
 
     private var panel: NSPanel?
     private var openID: String?
@@ -35,10 +38,12 @@ final class PopoverController {
                 .clipShape(shape)
             }
             .overlay(shape.strokeBorder(Color(hex: t.popupBorder).opacity(0.6), lineWidth: 1))
+            .modifier(CornerPin())
             .font(.custom(t.font, size: t.fontSize))
             .foregroundStyle(Color(hex: t.label))
             .environment(store)
             .environment(store.plugins)
+            .environment(pin)
             .fixedSize()
 
         let host = NSHostingController(rootView: content)
@@ -65,10 +70,14 @@ final class PopoverController {
         openID = id
         self.onClose = onClose
 
-        // Clicks in other apps close it. Clicks on the bar are left to the
-        // items (clicking the same item toggles, another item replaces it).
+        // Clicks in other apps close it unless pinned. Clicks on the bar are
+        // left to the items (clicking the same item toggles, another item
+        // replaces it).
         if let global = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { [weak self] _ in
-            MainActor.assumeIsolated { self?.close() }
+            MainActor.assumeIsolated {
+                guard let self, !self.pin.pinned else { return }
+                self.close()
+            }
         }) { monitors.append(global) }
     }
 
@@ -79,6 +88,7 @@ final class PopoverController {
         panel?.orderOut(nil)
         panel = nil
         openID = nil
+        pin.pinned = false
         let callback = onClose
         onClose = nil
         callback?()
@@ -173,5 +183,49 @@ extension View {
     /// Shows `content` in an anchored popover panel while `isPresented`.
     func barPopover<P: View>(id: String, isPresented: Binding<Bool>, @ViewBuilder content: @escaping () -> P) -> some View {
         modifier(BarPopoverModifier(id: id, isPresented: isPresented, popover: content))
+    }
+}
+
+@MainActor @Observable
+final class PopoverPin {
+    var pinned = false
+}
+
+/// Tells the popover container that a header already shows the pin.
+struct HeaderPinKey: PreferenceKey {
+    static let defaultValue = false
+    static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
+}
+
+/// Keeps the open popover up when you click elsewhere.
+struct PinButton: View {
+    @Environment(PopoverPin.self) private var pin
+    @Environment(BarStore.self) private var store
+    @State private var hovering = false
+
+    var body: some View {
+        let t = store.theme
+        Image(systemName: pin.pinned ? "pin.fill" : "pin")
+            .font(.system(size: 10, weight: .medium))
+            .rotationEffect(.degrees(pin.pinned ? 0 : 45))
+            .foregroundStyle(Color(hex: pin.pinned ? t.accent : t.label).opacity(pin.pinned || hovering ? 1 : 0.45))
+            .frame(width: 18, height: 18)
+            .contentShape(Rectangle())
+            .help(pin.pinned ? "Unpin" : "Pin open")
+            .animation(.easeOut(duration: 0.15), value: pin.pinned)
+            .barAction(onHover: { hovering = $0 }) { pin.pinned.toggle() }
+    }
+}
+
+/// A pin in the corner for popovers without a header.
+private struct CornerPin: ViewModifier {
+    @State private var headerHasPin = false
+
+    func body(content: Content) -> some View {
+        content
+            .onPreferenceChange(HeaderPinKey.self) { headerHasPin = $0 }
+            .overlay(alignment: .topTrailing) {
+                if !headerHasPin { PinButton().padding(2) }
+            }
     }
 }
