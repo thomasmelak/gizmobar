@@ -231,3 +231,67 @@ struct SceneOptionsTests {
         #expect(two[1].x == 0.5)
     }
 }
+
+import Metal
+
+@MainActor
+@Suite struct VisualizerRenderTests {
+    /// Draws `placement` offscreen and returns how many pixels have color.
+    func litPixels(_ placement: VisualizerPlacement, size: (Int, Int), bars: Float) throws -> Int {
+        guard let device = VisualizerRenderer.device, let r = VisualizerRenderer(device: device) else { return -1 }
+        let (w, h) = size
+        let cd = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: w, height: h, mipmapped: false)
+        cd.usage = [.renderTarget]; cd.storageMode = .shared
+        let dd = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .depth32Float, width: w, height: h, mipmapped: false)
+        dd.usage = [.renderTarget]; dd.storageMode = .private
+        let color = try #require(device.makeTexture(descriptor: cd))
+        let depth = try #require(device.makeTexture(descriptor: dd))
+        let pass = MTLRenderPassDescriptor()
+        pass.colorAttachments[0].texture = color
+        pass.colorAttachments[0].storeAction = .store
+        pass.depthAttachment.texture = depth
+        r.setColors(["#cba6f7"])
+        let config = VisualizerConfig(source: nil, playing: true, style: .ridgeline, placement: placement,
+                                      colors: ["#cba6f7"], opacity: 1, bars: 24)
+        var cmd: MTLCommandBuffer?
+        for _ in 0..<40 {
+            #expect(r.beginFrame())
+            cmd = r.draw([Float](repeating: bars, count: 24), dt: 1 / 60.0, config: config, pass: pass,
+                         drawable: nil, viewport: SIMD2(Float(w), Float(h)), scale: 2)
+            cmd?.waitUntilCompleted()
+        }
+        var px = [UInt8](repeating: 0, count: w * h * 4)
+        color.getBytes(&px, bytesPerRow: w * 4, from: MTLRegionMake2D(0, 0, w, h), mipmapLevel: 0)
+        return stride(from: 3, to: px.count, by: 4).filter { px[$0] > 8 }.count
+    }
+
+    @Test func popupDrawsAtTheSideBySideSize() throws {
+        let n = try litPixels(.popup, size: (540, 338), bars: 0.6)
+        #expect(n > 540 * 338 / 50)
+    }
+
+    @Test func popupDrawsFlatLinesWhenSilent() throws {
+        let n = try litPixels(.popup, size: (540, 338), bars: 0)
+        #expect(n > 540 * 4)
+    }
+
+    @Test func barDraws() throws {
+        let n = try litPixels(.bar, size: (300, 40), bars: 0.6)
+        #expect(n > 300 * 4)
+    }
+}
+
+import AppKit
+
+@MainActor
+@Test func visualizerKeepsItsScaleInAWindowThatStartsEmpty() {
+    // Popovers attach their content while the window is still zero-sized,
+    // which left the Metal layer at contentsScale 0 and nothing on screen.
+    let p = NSPanel(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
+    let v = VisualizerView(config: VisualizerConfig(source: nil, playing: false, style: .ridgeline, placement: .popup,
+                                                   colors: [], opacity: 1, bars: 8))
+    p.contentView = v
+    p.setFrame(NSRect(x: 0, y: 0, width: 270, height: 169), display: false)
+    #expect((v.layer?.contentsScale ?? 0) > 0)
+    p.close()
+}

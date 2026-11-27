@@ -100,6 +100,7 @@ public final class VisualizerView: MTKView, MTKViewDelegate {
         link?.invalidate()
         link = nil
         visible = window != nil
+        fixScale()
         if let window {
             occlusionObserver = NotificationCenter.default.addObserver(
                 forName: NSWindow.didChangeOcclusionStateNotification, object: window, queue: .main
@@ -120,10 +121,29 @@ public final class VisualizerView: MTKView, MTKViewDelegate {
         wake()
     }
 
+    public override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        fixScale()
+    }
+
+    /// A view that joins a window while the window is still zero-sized (as
+    /// popovers are before they're laid out) gets a layer contentsScale of
+    /// 0, and then every frame draws but nothing shows. Keep it at the
+    /// window's backing scale.
+    private func fixScale() {
+        let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
+        guard scale > 0, let layer, layer.contentsScale != scale else { return }
+        layer.contentsScale = scale
+    }
+
     public override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
+        fixScale()
         if link?.isPaused ?? true, visible, newSize.width > 0 { draw() }
     }
+
+    /// Frames drawn so far, for tests.
+    private(set) var framesDrawn = 0
 
     @objc private func tick(_ l: CADisplayLink) { draw() }
 
@@ -139,6 +159,7 @@ public final class VisualizerView: MTKView, MTKViewDelegate {
 
     public func draw(in view: MTKView) {
         guard let renderer, drawableSize.width > 0, drawableSize.height > 0, renderer.beginFrame() else { return }
+        if layer?.contentsScale == 0 { fixScale() }
         let now = CACurrentMediaTime()
         let dt = lastTime == 0 ? 1.0 / Double(preferredFramesPerSecond) : min(now - lastTime, 0.1)
         lastTime = now
@@ -148,7 +169,8 @@ public final class VisualizerView: MTKView, MTKViewDelegate {
             renderer.cancelFrame()
             return
         }
-        renderer.draw(analyzer.bars, dt: dt, config: config, pass: pass, drawable: drawable,
+        framesDrawn += 1
+        _ = renderer.draw(analyzer.bars, dt: dt, config: config, pass: pass, drawable: drawable,
                       viewport: SIMD2(Float(drawableSize.width), Float(drawableSize.height)),
                       scale: Float(window?.backingScaleFactor ?? 2))
         if !config.playing, analyzer.isSettled { link?.isPaused = true }
@@ -230,13 +252,13 @@ final class VisualizerRenderer {
     func setColors(_ hex: [String]) { colors = Self.stops(hex) }
 
     func draw(_ bars: [Float], dt: Double, config: VisualizerConfig, pass: MTLRenderPassDescriptor,
-              drawable: MTLDrawable, viewport: SIMD2<Float>, scale: Float)
+              drawable: MTLDrawable?, viewport: SIMD2<Float>, scale: Float) -> MTLCommandBuffer?
     {
         pass.colorAttachments[0].loadAction = .clear
         pass.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
         pass.depthAttachment?.loadAction = .clear
         pass.depthAttachment?.clearDepth = 1
-        guard let cmd = queue.makeCommandBuffer() else { inFlight.signal(); return }
+        guard let cmd = queue.makeCommandBuffer() else { inFlight.signal(); return nil }
         let sem = inFlight
         cmd.addCompletedHandler { _ in sem.signal() }
         if let enc = cmd.makeRenderCommandEncoder(descriptor: pass) {
@@ -247,8 +269,9 @@ final class VisualizerRenderer {
             }
             enc.endEncoding()
         }
-        cmd.present(drawable)
+        if let drawable { cmd.present(drawable) }
         cmd.commit()
+        return cmd
     }
 
     // MARK: Ridgeline
