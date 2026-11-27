@@ -51,8 +51,10 @@ public enum ConfigEditor {
     }
 
     /// Edits the file in place (creating it when missing). A nil `value`
-    /// removes the key.
+    /// removes the key. Writes through symlinks, so a config linked in from
+    /// a dotfiles repo (GNU Stow) stays a link.
     public static func update(_ key: String, _ value: String?, table: String? = nil, file: URL = GizmoPaths.configFile) throws {
+        let file = file.resolvingSymlinksInPath()
         let text = (try? String(contentsOf: file, encoding: .utf8)) ?? ""
         try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
         let out = value.map { set(key, $0, table: table, in: text) } ?? remove(key, table: table, in: text)

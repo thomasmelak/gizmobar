@@ -128,7 +128,7 @@ ui.scene({
 - **Parts**: `parts` and `ctx.scene.set(name, { color, visible, rotation })`
   change glTF nodes by name. `ctx.scene.on("click", (part) => ...)` tells
   you which node was clicked.
-- **Looks**: `toon` is flat color with an outline (the default), `pbr` uses
+- **Looks**: `toon` is flat color with an outline (the default; the outline needs macOS 15), `pbr` uses
   the model's own materials and lighting, `unlit` is flat color only.
 - **Cost**: a scene only renders while it animates or you drag it. When it
   is still, it is swapped for a snapshot, so a resting model costs nothing.

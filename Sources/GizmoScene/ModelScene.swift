@@ -115,8 +115,9 @@ public final class ModelScene {
                     model.name = e.name
                     e.addChild(model)
                     materials[e.name, default: []].append(model)
-                    if look == .toon {
+                    if look == .toon, #available(macOS 15, *) {
                         // Outline: the same mesh a bit larger, dark, showing only its back faces.
+                        // Back-face-only materials need macOS 15; macOS 14 gets no outline.
                         var outline = UnlitMaterial(color: NSColor(white: 0.05, alpha: 1))
                         outline.faceCulling = .front
                         let hull = ModelEntity(mesh: mesh, materials: [outline])

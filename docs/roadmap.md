@@ -56,7 +56,7 @@ reaches parity.
 
 - [x] glTF/GLB reader (meshes, materials, node tree, animation clips) and USDZ through RealityKit
 - [x] `ui.scene`: clips with cross-fades, play-once, per-part color/visibility/rotation, part clicks
-- [x] Looks: toon (unlit with outline), pbr, unlit
+- [x] Looks: toon (unlit, with an outline on macOS 15+), pbr, unlit
 - [x] Idle scenes freeze to a snapshot; rendering runs only while animating or orbiting
 - [x] Popover view you can orbit
 - [x] Dot globe as a built-in scene (`ui.globe`, and a `globe` widget): sun-lit day side, markers, pulses
