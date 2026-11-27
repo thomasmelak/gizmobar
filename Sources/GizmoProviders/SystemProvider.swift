@@ -89,7 +89,7 @@ public actor SystemProvider: Provider {
         }
         let total = ProcessInfo.processInfo.physicalMemory
         guard ok == KERN_SUCCESS else { return (0, total) }
-        let page = UInt64(vm_kernel_page_size)
+        let page = UInt64(getpagesize())
         let used = (UInt64(stats.active_count) + UInt64(stats.wire_count) + UInt64(stats.compressor_page_count)) * page
         return (used, total)
     }

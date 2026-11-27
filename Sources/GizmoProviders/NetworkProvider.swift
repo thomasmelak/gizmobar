@@ -92,7 +92,9 @@ public actor NetworkProvider: Provider {
                 if Int32(header.ifm_type) == RTM_IFINFO2, offset + MemoryLayout<if_msghdr2>.size <= length {
                     let h2 = raw.loadUnaligned(fromByteOffset: offset, as: if_msghdr2.self)
                     var name = [CChar](repeating: 0, count: Int(IF_NAMESIZE))
-                    if if_indextoname(UInt32(h2.ifm_index), &name) != nil, String(cString: name) == interface {
+                    if if_indextoname(UInt32(h2.ifm_index), &name) != nil,
+                       String(decoding: name.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self) == interface
+                    {
                         rx = h2.ifm_data.ifi_ibytes
                         tx = h2.ifm_data.ifi_obytes
                         found = true
