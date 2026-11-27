@@ -14,7 +14,7 @@ glass = true          # glass pills on a transparent bar
 [layout]
 left = ["logo", "workspaces"]
 center = ["front_app"]
-right = ["network", "system", "clock"]
+right = ["network", "system", "battery", "volume", "clock"]
 
 [logo]
 # image = "~/.config/gizmobar/logo.svg"   # default: the Gizmobar app icon

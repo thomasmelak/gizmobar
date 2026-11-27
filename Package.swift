@@ -29,6 +29,7 @@ let package = Package(
                 .linkedFramework("SystemConfiguration"),
                 .linkedFramework("IOBluetooth"),
                 .linkedFramework("Network"),
+                .linkedFramework("CoreAudio"),
             ]
         ),
         // 3D scene engine contract (Phase 5: RealityKit, Metal fallback).

@@ -137,6 +137,8 @@ enum WidgetRegistry {
         case "clock": ClockWidget()
         case "system": SystemWidget()
         case "network": NetworkWidget()
+        case "battery": BatteryWidget()
+        case "volume": VolumeWidget()
         default: MissingWidget(id: id)
         }
     }

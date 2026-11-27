@@ -23,7 +23,8 @@ reaches parity.
 - [x] Popovers as anchored glass child panels, closed by clicking outside
 - [x] System: CPU, GPU, temperature, RAM, swap, disk, lid angle (in-process), Performance popover
 - [x] Network: speeds from 64-bit counters, Connectivity popover with Wi-Fi/Bluetooth switches
-- [ ] Battery, volume and output devices, displays (DDC) and Night Shift
+- [x] Battery: Low Power Mode and No Sleep switches, health, charge limit; Sound: volume slider, mute, output devices
+- [ ] Displays (DDC) and Night Shift
 - [ ] Theme picker, Tefer Line icons, right-click icon menu
 
 

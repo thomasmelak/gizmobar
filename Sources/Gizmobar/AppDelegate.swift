@@ -13,6 +13,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var server: IPCServer?
     private var aerospace: AeroSpaceProvider!
     private var network: NetworkProvider!
+    private var battery: BatteryProvider!
+    private var audio: AudioProvider!
     private var providers: [any Provider] = []
     private var watcher: ConfigWatcher?
 
@@ -24,16 +26,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         aerospace = AeroSpaceProvider(settings: config.aerospace)
         network = NetworkProvider()
-        providers = [ClockProvider(), AppsProvider(), aerospace, SystemProvider(), network]
-        store.onRequest = { [network] name in
-            guard let network else { return }
-            switch name {
-            case BarRequest.refreshConnectivity: Task { await network.refreshConnectivity() }
-            case BarRequest.toggleWiFi: Task { await network.toggleWiFi() }
-            case BarRequest.toggleBluetooth: Task { await network.toggleBluetooth() }
-            default: NSLog("gizmobar: unknown request \(name)")
-            }
-        }
+        battery = BatteryProvider()
+        audio = AudioProvider()
+        providers = [ClockProvider(), AppsProvider(), aerospace, SystemProvider(), network, battery, audio]
+        store.onRequest = { [weak self] name in self?.handleRequest(name) }
         store.onFocusWorkspace = { [aerospace] ws in
             Task { await aerospace?.focus(workspace: ws) }
         }
@@ -53,6 +49,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             else if changes.contains(.iconPacks) { self.reloadIcons() }
         }
         watcher?.start()
+    }
+
+    /// Requests from widgets, routed to the provider that owns them.
+    private func handleRequest(_ name: String) {
+        let (action, arg) = name.split(separator: ":", maxSplits: 1).map(String.init).splitFirst()
+        let network = self.network!, battery = self.battery!, audio = self.audio!
+        Task {
+            switch action {
+            case BarRequest.refreshConnectivity: await network.refreshConnectivity()
+            case BarRequest.toggleWiFi: await network.toggleWiFi()
+            case BarRequest.toggleBluetooth: await network.toggleBluetooth()
+            case BarRequest.batteryDetailsOn: await battery.setDetailed(true)
+            case BarRequest.batteryDetailsOff: await battery.setDetailed(false)
+            case BarRequest.toggleLowPower: await battery.toggleLowPower()
+            case BarRequest.toggleNoSleep: await battery.toggleNoSleep()
+            case BarRequest.setChargeLimit: await battery.setChargeLimit()
+            case BarRequest.toggleMute: await audio.toggleMute()
+            case "audio.volume": if let v = arg.flatMap(Double.init) { await audio.setVolume(v) }
+            case "audio.output": if let id = arg.flatMap(UInt32.init) { await audio.select(id) }
+            default: NSLog("gizmobar: unknown request \(name)")
+            }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -155,5 +173,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         default:
             return .error("usage: gizmo icons missing")
         }
+    }
+}
+
+private extension Array where Element == String {
+    func splitFirst() -> (String, String?) {
+        (first ?? "", count > 1 ? self[1] : nil)
     }
 }

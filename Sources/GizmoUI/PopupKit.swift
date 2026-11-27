@@ -173,7 +173,7 @@ enum ActivityMonitor {
             CFPreferencesSetAppValue("SelectedTab" as CFString, tab.rawValue as CFNumber, id as CFString)
             CFPreferencesAppSynchronize(id as CFString)
             if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) {
-                NSWorkspace.shared.openApplication(at: url, configuration: .init())
+                _ = try? await NSWorkspace.shared.openApplication(at: url, configuration: .init())
             }
         }
     }

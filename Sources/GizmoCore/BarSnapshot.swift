@@ -54,6 +54,8 @@ public struct BarSnapshot: Sendable, Equatable {
     public var swapHistory = History()
     public var network: NetworkSpeed = .offline
     public var connectivity: Connectivity?
+    public var battery: BatteryStatus?
+    public var audio: AudioStatus?
     /// Last payload per external `gizmo trigger` topic.
     public var triggers: [String: JSONValue] = [:]
 
@@ -99,6 +101,12 @@ public struct BarSnapshot: Sendable, Equatable {
 
         case Topic.networkConnectivity:
             if let c = event.payload.decode(Connectivity.self) { connectivity = c }
+
+        case Topic.battery:
+            battery = event.payload.decode(BatteryStatus.self)
+
+        case Topic.audio:
+            audio = event.payload.decode(AudioStatus.self)
 
         case Topic.clockTick:
             if let t = event.payload["epoch"], case .number(let s) = t { now = Date(timeIntervalSince1970: s) }

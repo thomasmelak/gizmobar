@@ -332,3 +332,40 @@ import Testing
         #expect(s.network.interface == "en0")
     }
 }
+
+@Suite struct PowerAudioTests {
+    @Test func batteryLabelsMatchBatteryInfoSh() {
+        var b = BatteryStatus(percent: 64, minutesToEmpty: 185, rateMilliwatts: -7400)
+        #expect(b.stateLabel == "On battery")
+        #expect(b.timeLabel == "3:05 left")
+        #expect(b.drawLabel == "7.4 W")
+        #expect(b.rateLabel == "-7.4 W")
+        #expect(b.tone == .normal)
+        #expect(b.symbol == "battery.75percent")
+
+        b.minutesToEmpty = 65535
+        #expect(b.timeLabel == "estimating")
+
+        b = BatteryStatus(percent: 80, external: true, charging: true, minutesToFull: 42, rateMilliwatts: 25000, loadMilliwatts: 9000)
+        #expect(b.stateLabel == "Charging")
+        #expect(b.timeLabel == "0:42 to full")
+        #expect(b.drawLabel == "9.0 W")
+        #expect(b.rateLabel == "+25.0 W")
+        #expect(b.tone == .charging)
+
+        #expect(BatteryStatus(percent: 100, external: true, full: true).stateLabel == "Charged")
+        #expect(BatteryStatus(percent: 100, external: true, full: true).timeLabel == "-")
+        #expect(BatteryStatus(percent: 15).tone == .low)
+        #expect(BatteryStatus(percent: 50, lowPower: true).tone == .saver)
+    }
+
+    @Test func audioSymbolsAndDeviceKinds() {
+        #expect(AudioStatus(volume: 70, muted: false).symbol == "speaker.wave.3")
+        #expect(AudioStatus(volume: 40, muted: false).symbol == "speaker.wave.2")
+        #expect(AudioStatus(volume: 10, muted: false).symbol == "speaker.wave.1")
+        #expect(AudioStatus(volume: 70, muted: true).symbol == "speaker.slash")
+        #expect(AudioDevice(id: 1, name: "AirPods Pro", isCurrent: false).kind == .headphones)
+        #expect(AudioDevice(id: 2, name: "DELL U2723QE", isCurrent: false).kind == .display)
+        #expect(AudioDevice(id: 3, name: "MacBook Pro Speakers", isCurrent: true).kind == .speaker)
+    }
+}

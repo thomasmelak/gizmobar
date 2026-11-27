@@ -39,6 +39,8 @@ public enum Topic {
     public static let systemStats = "system.stats"
     public static let networkSpeed = "network.speed"
     public static let networkConnectivity = "network.connectivity"
+    public static let battery = "power.battery"
+    public static let audio = "audio.output"
     public static let displaysChanged = "displays.changed"
     public static let configReloaded = "gizmobar.config-reloaded"
 }

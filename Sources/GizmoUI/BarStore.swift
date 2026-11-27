@@ -55,4 +55,12 @@ public enum BarRequest {
     public static let refreshConnectivity = "network.connectivity.refresh"
     public static let toggleWiFi = "network.wifi.toggle"
     public static let toggleBluetooth = "network.bluetooth.toggle"
+    public static let batteryDetailsOn = "battery.details.on"
+    public static let batteryDetailsOff = "battery.details.off"
+    public static let toggleLowPower = "battery.lowpower.toggle"
+    public static let toggleNoSleep = "battery.nosleep.toggle"
+    public static let setChargeLimit = "battery.chargelimit.set"
+    public static let toggleMute = "audio.mute.toggle"
+    public static func setVolume(_ v: Double) -> String { "audio.volume:\(v)" }
+    public static func selectOutput(_ id: UInt32) -> String { "audio.output:\(id)" }
 }
