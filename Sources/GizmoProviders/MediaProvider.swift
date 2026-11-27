@@ -321,7 +321,9 @@ public actor MediaProvider: Provider {
             try? data.write(to: file, options: .atomic)
         }
         let colors = Self.colors(of: file)
-        guard var s = sources[id], s.track?.key == key else { return }
+        // The track may already be history (skipped before its art came).
+        history[id]?.setArt(key: key, path: file.path, color: colors.first)
+        guard var s = sources[id], s.track?.key == key else { return await publish() }
         s.track?.artworkPath = file.path
         s.track?.artColor = colors.first
         s.track?.artGradient = colors.count > 1 ? colors : nil
