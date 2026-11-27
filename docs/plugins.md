@@ -169,6 +169,7 @@ where you are and your `[[clock.world]]` zones.
 - `net-speed`: the built-in network widget as a plugin (providers, graphs, popover)
 - `theme-picker`: config, storage and requests
 - `status-pet`: a robot model that sleeps, dances, runs or idles with the
-  battery, music and CPU (`ui.scene`, clips, click to wave)
+  battery, music and CPU, and sits down with a cable in while charging
+  (`ui.scene`, clips, click to wave; `charging = false` turns that off)
 - `uptime-globe`: pings your sites and pins them on the globe (`ctx.fetch`,
   timers, `ui.globe`)
