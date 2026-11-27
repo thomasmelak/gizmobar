@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Rejects commits with co-author/session trailers, generated-by footers or
+# an assistant author. Install with `make hooks`.
+exec "$(git rev-parse --show-toplevel)/scripts/check-attribution.sh" message "$1"

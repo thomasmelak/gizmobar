@@ -10,7 +10,7 @@ TEST_FLAGS := -Xswiftc -F -Xswiftc $(CLT_FW) -Xlinker -F -Xlinker $(CLT_FW) \
 	-Xlinker -rpath -Xlinker $(CLT_FW) -Xlinker -rpath -Xlinker $(DEV_DIR)/Library/Developer/usr/lib
 endif
 
-.PHONY: build test app run install uninstall config clean
+.PHONY: build test app run install uninstall config clean hooks
 
 build:
 	swift build
@@ -40,6 +40,11 @@ uninstall:
 config:
 	mkdir -p $(HOME)/.config/gizmobar
 	cp -Rn examples/gizmobar/ $(HOME)/.config/gizmobar/ || true
+
+# Commit-msg hook that rejects attribution trailers (scripts/hooks).
+hooks:
+	git config core.hooksPath scripts/hooks
+	@echo "hooks installed from scripts/hooks"
 
 clean:
 	rm -rf .build build

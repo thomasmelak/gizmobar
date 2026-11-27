@@ -24,6 +24,7 @@ make test          # unit tests
 make config        # copy examples/gizmobar into ~/.config/gizmobar
 make run           # build Gizmobar.app and launch it
 make install       # install to /Applications and link `gizmo` into ~/.local/bin
+make hooks         # commit-msg hook that rejects co-author and generated-by trailers
 ```
 
 Sign with a stable identity so privacy grants survive rebuilds:
