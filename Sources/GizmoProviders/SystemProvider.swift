@@ -144,10 +144,13 @@ private func IOHIDEventGetFloatValue(_ event: IOHIDEventRef, _ field: Int32) -> 
 /// admin rights needed. The client and service list are created once.
 final class TemperatureSensor {
     private let temperatureEvent: Int64 = 15 // kIOHIDEventTypeTemperature
+    // Held for the sensor's lifetime: the service clients point back at it,
+    // and copying an event after it is freed aborts on a corrupt lock.
+    private let client: IOHIDEventSystemClient
     private var services: [IOHIDServiceClient] = []
 
     init() {
-        let client = IOHIDEventSystemClientCreate(kCFAllocatorDefault)
+        client = IOHIDEventSystemClientCreate(kCFAllocatorDefault)
         _ = IOHIDEventSystemClientSetMatching(client, ["PrimaryUsagePage": 0xff00, "PrimaryUsage": 5] as CFDictionary)
         let all = (IOHIDEventSystemClientCopyServices(client) as? [IOHIDServiceClient]) ?? []
         // CPU die sensors are "PMU tdie<n>"; fall back to every PMU sensor.
@@ -163,6 +166,7 @@ final class TemperatureSensor {
         for service in services {
             guard let event = IOHIDServiceClientCopyEvent(service, temperatureEvent, 0, 0) else { continue }
             let value = IOHIDEventGetFloatValue(event, Int32(temperatureEvent << 16))
+            Unmanaged<AnyObject>.fromOpaque(UnsafeRawPointer(event)).release() // Copy rule
             if value > 0, value < 150 { hottest = max(hottest ?? 0, value) }
         }
         return hottest
