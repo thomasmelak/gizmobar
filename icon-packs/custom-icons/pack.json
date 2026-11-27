@@ -1,0 +1,8 @@
+{
+  "id": "custom-icons",
+  "name": "Custom Icons",
+  "kind": "svg",
+  "grid": 24,
+  "stroke": 1.5,
+  "license": "All rights reserved"
+}
