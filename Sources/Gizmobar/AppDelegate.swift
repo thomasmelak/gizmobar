@@ -296,7 +296,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 "frontApp": s.frontApp.map { .string($0.name) } ?? .null,
                 "nowPlaying": store.shownSource.map { .string($0.id) } ?? .null,
                 "audioSources": .array(s.audioSources.map { a in
-                    .object(["id": .string(a.id), "active": .bool(a.isActive), "spectrum": .bool(s.spectra[a.id] != nil)])
+                    .object(["id": .string(a.id), "active": .bool(a.isActive), "spectrum": .bool(AudioFrameHub.shared.source(a.id) != nil)])
                 }),
                 "panels": .number(Double(panels.panelCount)),
                 "subscribers": .number(Double(await bus.subscriberCount)),

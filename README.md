@@ -139,9 +139,12 @@ adapter = "~/.local/share/mediaremote-adapter"   # holds mediaremote-adapter.pl 
 ```
 
 Without it the bar falls back to `nowplaying-cli` when that's installed.
-The spectrum comes from a Core Audio tap (macOS 14.2+, asks for audio
-capture once); deny it or set `spectrum = false` and the bars animate on
-their own.
+The visualizer listens to each app on its own through Core Audio taps
+(macOS 14.2+, asks for audio capture once) and analyzes the sound the way
+[cava](https://github.com/karlstav/cava) does. It draws 3D ridges in the
+album's colors by default; `visualizer = "bars"` gives flat bars and
+`"off"` hides it. Deny audio capture or set `spectrum = false` and it
+animates on its own.
 
 ## Configuration
 

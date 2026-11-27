@@ -71,8 +71,9 @@ debug_fallbacks = false
 
 [media]
 # adapter = "~/.local/share/mediaremote-adapter"   # any app's media (browsers...), see README
-spectrum = true        # live bars from a Core Audio tap; false = animated bars
+spectrum = true        # live audio from Core Audio taps; false = animated
 bands = 24
+visualizer = "ridgeline"  # ridgeline | bars | off
 width = 156
 
 # [plugins.uptime-globe]

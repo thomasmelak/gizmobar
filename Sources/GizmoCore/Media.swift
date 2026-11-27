@@ -211,34 +211,3 @@ struct HSL {
         return RGBA(r: f(h + 1 / 3), g: f(h), b: f(h - 1 / 3))
     }
 }
-
-/// Turns FFT power into bar heights.
-public enum Spectrum {
-    /// Groups `power` (|X|² for bins 0..<n, n = fftSize/2) into `count`
-    /// log-spaced bands between `low` and `high` Hz, as 0...1 on a dB scale
-    /// from `floor` to `ceiling`.
-    public static func bands(power: [Float], sampleRate: Double, count: Int,
-                             low: Double = 40, high: Double = 16_000,
-                             floor: Float = -70, ceiling: Float = -10) -> [Float] {
-        guard power.count > 1, count > 0 else { return [] }
-        let binHz = sampleRate / Double(power.count * 2)
-        let ratio = pow(high / low, 1 / Double(count))
-        var out = [Float](repeating: 0, count: count)
-        let norm = Float(power.count * power.count)
-        for i in 0..<count {
-            let f0 = low * pow(ratio, Double(i)), f1 = f0 * ratio
-            let b0 = max(1, Int(f0 / binHz)), b1 = min(power.count - 1, max(b0, Int(f1 / binHz)))
-            var peak: Float = 0
-            if b0 <= b1 { for b in b0...b1 { peak = max(peak, power[b]) } }
-            let db = 10 * log10(max(peak / norm, 1e-12))
-            out[i] = min(max((db - floor) / (ceiling - floor), 0), 1)
-        }
-        return out
-    }
-
-    /// Fast rise, slow fall, so bars read as motion and not flicker.
-    public static func smooth(_ previous: [Float], _ next: [Float], attack: Float = 0.6, decay: Float = 0.15) -> [Float] {
-        guard previous.count == next.count else { return next }
-        return zip(previous, next).map { p, n in n > p ? p + (n - p) * attack : p + (n - p) * decay }
-    }
-}
