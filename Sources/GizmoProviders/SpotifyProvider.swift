@@ -288,7 +288,7 @@ public actor SpotifyProvider: Provider {
             let images = (item["album"] as? [String: Any])?["images"] ?? item["images"]
             let file = await Self.cacheImage(Self.image(images, near: 300), key: uri ?? title)
             cards.append(TrackCard(title: title, artist: artist, artworkPath: file?.path,
-                                   artColor: file.flatMap(MediaProvider.color(of:)), uri: uri))
+                                   artColor: file.flatMap { MediaProvider.colors(of: $0).first }, uri: uri))
         }
         await media?.setUpNext(Self.spotifyApp, cards)
     }
