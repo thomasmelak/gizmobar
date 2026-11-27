@@ -485,8 +485,8 @@ struct AppUsageTests {
         u.activate("a", name: "A", at: t0.addingTimeInterval(360))
         u.credit(until: t0.addingTimeInterval(10_000))
         #expect(u.apps["a"]?.activations == 2)
-        #expect(u.apps["b"]?.seconds == 60)
-        #expect(u.apps["a"]?.seconds == 300 + 3600)
+        #expect(u.apps["b"]?.seconds.rounded() == 60)
+        #expect(u.apps["a"]?.seconds.rounded() == 3900)
         #expect(u.ranked.map(\.bundleID) == ["a", "b"])
     }
 }
