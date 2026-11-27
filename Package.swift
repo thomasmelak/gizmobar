@@ -33,15 +33,22 @@ let package = Package(
                 .linkedFramework("Accelerate"),
             ]
         ),
+        // TypeScript plugins: one JavaScriptCore context per plugin.
+        .target(
+            name: "GizmoPlugins",
+            dependencies: ["GizmoCore"],
+            linkerSettings: [.linkedFramework("JavaScriptCore")]
+        ),
         // 3D scene engine contract (Phase 5: RealityKit, Metal fallback).
         .target(name: "GizmoScene", dependencies: ["GizmoCore"]),
         // Panels, SwiftUI widgets, icon rendering.
         .target(name: "GizmoUI", dependencies: ["GizmoCore", "GizmoProviders", "GizmoScene"]),
         .executableTarget(
             name: "Gizmobar",
-            dependencies: ["GizmoCore", "GizmoIPC", "GizmoProviders", "GizmoUI"]
+            dependencies: ["GizmoCore", "GizmoIPC", "GizmoProviders", "GizmoPlugins", "GizmoUI"]
         ),
         .executableTarget(name: "gizmo", dependencies: ["GizmoCore", "GizmoIPC"]),
         .testTarget(name: "GizmoCoreTests", dependencies: ["GizmoCore", "GizmoProviders"]),
+        .testTarget(name: "GizmoPluginsTests", dependencies: ["GizmoCore", "GizmoPlugins"]),
     ]
 )

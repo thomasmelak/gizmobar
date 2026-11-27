@@ -3,6 +3,7 @@ import ServiceManagement
 import UniformTypeIdentifiers
 import GizmoCore
 import GizmoIPC
+import GizmoPlugins
 import GizmoProviders
 import GizmoUI
 
@@ -22,6 +23,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var spectrum: SpectrumProvider!
     private var providers: [any Provider] = []
     private var watcher: ConfigWatcher?
+    private var plugins: PluginManager!
+    private var pluginLog: [String] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         BackgroundCursor.enable()
@@ -49,6 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { await provider.start(bus: bus) }
         }
 
+        startPlugins(config)
         panels = PanelManager(store: store)
         panels.start()
         startServer()
@@ -58,8 +62,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             if changes.contains(.config) || changes.contains(.theme) { self.reload() }
             else if changes.contains(.iconPacks) { self.reloadIcons() }
+            if changes.contains(.plugins) { Task { await self.plugins.reloadAll() } }
         }
         watcher?.start()
+    }
+
+    // MARK: - Plugins
+
+    private func startPlugins(_ config: GizmoConfig) {
+        let manager = PluginManager(bus: bus)
+        let store = self.store!
+        manager.onTree = { id, node in
+            if let node { store.plugins.trees[id] = node } else { store.plugins.trees[id] = nil }
+        }
+        manager.onRequest = { [weak self] name in self?.handleRequest(name) }
+        manager.onOpen = { url in NSWorkspace.shared.open(url) }
+        manager.onLog = { [weak self] id, level, msg in
+            NSLog("gizmobar plugin \(id) [\(level)]: \(msg)")
+            self?.pluginLog.append("\(id) [\(level)] \(msg)")
+            if let n = self?.pluginLog.count, n > 200 { self?.pluginLog.removeFirst(n - 200) }
+        }
+        store.plugins.invoke = { [weak manager] id, cb, arg in manager?.invoke(id, cb, arg) }
+        store.plugins.popover = { [weak manager] id, cb in await manager?.popover(id, cb) ?? .error("gone") }
+        manager.start(theme: store.theme, settings: config.plugins)
+        plugins = manager
     }
 
     /// Requests from widgets, routed to the provider that owns them.
@@ -213,6 +239,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             await spectrum.update(settings: config.media)
         }
         if layoutChanged { panels.rebuild() }
+        plugins.update(theme: store.theme, settings: config.plugins)
         Task { await bus.publish(topic: Topic.configReloaded) }
     }
 
@@ -258,8 +285,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ])
         case "icons":
             return await iconsCommand(req.args)
+        case "plugins":
+            return await pluginsCommand(req.args)
         default:
             return .error("unknown command: \(req.command)")
+        }
+    }
+
+    private func pluginsCommand(_ args: [String]) async -> IPCResponse {
+        switch args.first {
+        case "reload":
+            await plugins.reloadAll()
+            return .init(ok: true, message: "reloaded \(plugins.ids.count) plugin(s)")
+        case "resume":
+            guard args.count == 2 else { return .error("usage: gizmo plugins resume <id>") }
+            plugins.resume(args[1])
+            return .init(ok: true)
+        case "log":
+            return .init(ok: true, message: pluginLog.suffix(50).joined(separator: "\n"))
+        default:
+            // gizmo debug: per-plugin render times and provider update counts.
+            let list: [JSONValue] = plugins.infos.map { i in
+                [
+                    "id": .string(i.id),
+                    "renders": .number(Double(i.stats.renders)),
+                    "avgMs": .number((i.stats.averageMs * 100).rounded() / 100),
+                    "maxMs": .number((i.stats.maxMs * 100).rounded() / 100),
+                    "overruns": .number(Double(i.stats.overruns)),
+                    "paused": .bool(i.stats.paused),
+                    "error": i.error.map(JSONValue.string) ?? .null,
+                    "providers": .array(i.providers.map(JSONValue.string)),
+                ]
+            }
+            let rates = plugins.providerRates.mapValues { JSONValue.number(Double($0)) }
+            return .init(ok: true, data: ["plugins": .array(list), "providerUpdates": .object(rates)])
         }
     }
 

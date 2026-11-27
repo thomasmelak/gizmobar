@@ -42,8 +42,15 @@ reaches parity.
 
 ## Phase 4: plugin SDK
 
-JavaScriptCore runtime, widget tree diffing, permissions, budgets, hot
-reload, generated TypeScript types, `gizmo new`, `gizmo debug`.
+- [x] JavaScriptCore runtime: one VM and queue per plugin, timers, fetch, exec, storage
+- [x] Widget trees drawn natively, with callbacks and popovers
+- [x] Permissions (`provider:*`, `net:<host>`, `exec`, `requests`)
+- [x] 2 ms render budget with pause, 250 ms runaway-script limit
+- [x] Hot reload: esbuild rebuild on save, storage kept
+- [x] Provider types generated from Swift (`gizmo types`), `gizmo new`, `gizmo debug`
+- [x] Two built-ins rewritten as plugins: net-speed, theme-picker
+- [ ] Re-render only the changed subtree (the whole plugin tree redraws today)
+- [ ] Debug overlay on the bar (the numbers are in `gizmo debug` for now)
 
 ## Phase 5: 3D scene engine
 

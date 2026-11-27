@@ -1,82 +1,54 @@
 // @gizmobar/sdk: the contract between a plugin and the Gizmobar host.
 //
-// A plugin describes what to show; the host draws it natively. Plugins run in
-// their own JavaScriptCore context with a 2 ms render budget, and only reach
-// providers, the network or `exec` when plugin.json grants it.
-//
-// The JavaScriptCore runtime ships in Phase 4. Until then this file fixes
-// the API so plugins and the host can be written against it. Provider
-// payload types will be generated from the Swift definitions.
+// A plugin describes what to show; the host draws it natively. Each plugin
+// runs in its own JavaScriptCore context with a 2 ms render budget, and only
+// reaches providers, the network or `exec` when plugin.json grants it.
+// Provider types are generated from the Swift definitions (`gizmo types`).
 
-export type Color = `#${string}`;
+import type { Providers } from "./providers.js";
+export type { Providers } from "./providers.js";
 
-// ---------------------------------------------------------------- providers
-
-export interface Providers {
-  workspaces: {
-    focused: string | null;
-    list: { id: string; focused: boolean; apps: AppRef[] }[];
-  };
-  apps: { front: AppRef | null };
-  clock: { now: number };
-  network: { ssid: string | null; up: boolean; downBps: number; upBps: number };
-  cpu: { usage: number; temperature: number | null };
-  memory: { used: number; total: number; pressure: "normal" | "warn" | "critical" };
-  power: { percent: number; charging: boolean; lowPower: boolean; timeRemaining: number | null };
-  media: {
-    playing: boolean;
-    title: string | null;
-    artist: string | null;
-    album: string | null;
-    artwork: string | null;
-    position: number;
-    duration: number;
-    source: string | null;
-  };
-  audio: { volume: number; muted: boolean; output: string };
-  displays: { id: number; name: string; builtIn: boolean; brightness: number | null }[];
-}
-
-export type ProviderName = keyof Providers;
+export type Color = `#${string}` | `theme.${string}`;
 
 export interface AppRef {
   bundleId: string | null;
   name: string;
 }
 
+export type ProviderName = keyof Providers;
+
 export interface Signal<T> {
+  /** Reading it inside render subscribes the render to changes. */
   readonly value: T;
 }
-
-// ------------------------------------------------------------------- widgets
 
 export type Node =
   | { kind: "row"; children: Node[]; gap?: number }
   | { kind: "column"; children: Node[]; gap?: number }
   | { kind: "pill"; child: Node; focused?: boolean; onClick?: () => void; popover?: () => Node }
-  | { kind: "text"; text: string; color?: Color; marquee?: boolean; mono?: boolean }
-  | { kind: "icon"; name: string; set?: "sf" | "phosphor"; color?: Color }
+  | { kind: "text"; text: string; color?: Color; size?: number; marquee?: boolean; mono?: boolean }
+  | { kind: "icon"; name: string; color?: Color }
   | { kind: "image"; src: string; size?: number; radius?: number }
   | { kind: "appIcon"; bundleId: string; style?: "auto" | "system" | "pack" }
   | { kind: "graph"; values: number[]; color?: Color; width?: number }
   | { kind: "slider"; value: number; onChange: (v: number) => void }
   | { kind: "toggle"; value: boolean; onChange: (v: boolean) => void }
-  | { kind: "scene"; scene: SceneOptions }
+  | { kind: "button"; label: string; icon?: string; onClick: () => void }
+  | { kind: "scene"; scene: SceneOptions; onClick?: () => void; popover?: () => Node }
   | { kind: "spacer" };
-
-// Any node with onClick (pill, row, scene, slider, toggle) shows the
-// pointing-hand cursor on hover; the host applies it, plugins don't need to.
 
 export interface RowOptions {
   icon?: string;
-  label?: string;
+  label?: string | number;
   color?: Color;
+  labelColor?: Color;
+  focused?: boolean;
   onClick?: () => void;
   popover?: () => Node;
 }
 
 export interface SceneOptions {
-  /** Path to a .glb/.gltf/.usdz in the plugin's models/ folder, or a built-in scene. */
+  /** A .glb/.gltf/.usdz in the plugin folder, or a built-in scene. */
   model?: string;
   builtin?: "globe";
   animation?: string;
@@ -92,7 +64,51 @@ export interface GlobeOptions {
   markers?: { lat: number; lon: number; color?: Color; pulse?: boolean; label?: string }[];
   arcs?: { from: [number, number]; to: [number, number]; color?: Color }[];
   spin?: number;
+  size?: number;
+  onClick?: () => void;
+  popover?: () => Node;
 }
+
+export interface SceneControl {
+  play(clip: string, opts?: { once?: boolean; blend?: number }): void;
+  set(part: string, o: { rotation?: [number, number, number]; color?: Color; visible?: boolean }): void;
+  on(event: "click", cb: (part: string) => void): () => void;
+  clips(): string[];
+}
+
+export interface Context<Config = Record<string, unknown>> {
+  /** `[plugins.<id>]` from config.toml. */
+  config: Config;
+  theme: Record<"accent" | "icon" | "label" | "good" | "warn" | "bad" | "netUp" | "netDown", string>;
+  /** Needs "provider:<name>". `every` limits updates, e.g. "2s". */
+  use<P extends ProviderName>(provider: P, opts?: { every?: number | string }): Signal<Providers[P]>;
+  /** Any bus topic, e.g. one pushed with `gizmo trigger`. */
+  on(topic: string, cb: (payload: unknown) => void): () => void;
+  /** Publishes "plugin.<id>.<topic>" on the bus. */
+  emit(topic: string, payload?: unknown): void;
+  /** Needs "requests": the same requests built-in widgets send ("theme.set:nord"...). */
+  request(name: string): void;
+  /** Draw again now (after changing your own state). */
+  rerender(): void;
+  storage: { get<T>(key: string): T | undefined; set<T>(key: string, value: T): void };
+  /** Needs "net:<host>". */
+  fetch(url: string, init?: { method?: string; headers?: Record<string, string>; body?: string }): Promise<{ status: number; text(): Promise<string>; json<T>(): Promise<T> }>;
+  /** Needs "exec". */
+  exec(cmd: string, args?: string[]): Promise<{ code: number; stdout: string }>;
+  open(url: string): void;
+  scene: SceneControl;
+}
+
+export interface PluginDefinition<Config> {
+  id: string;
+  /** Called once; returns the render function the host calls when inputs change. */
+  setup(ctx: Context<Config>): () => Node;
+}
+
+
+// ------------------------------------------------------------- runtime
+// The host provides these at run time (the bundle marks @gizmobar/sdk as
+// external); these implementations match it, for tests and type checks.
 
 export const ui = {
   row: (o: RowOptions | Node[]): Node =>
@@ -102,62 +118,39 @@ export const ui = {
           kind: "pill",
           onClick: o.onClick,
           popover: o.popover,
+          focused: o.focused,
           child: {
             kind: "row",
             gap: 6,
             children: [
               ...(o.icon ? [{ kind: "icon", name: o.icon, color: o.color } as Node] : []),
-              ...(o.label !== undefined ? [{ kind: "text", text: o.label } as Node] : []),
+              ...(o.label !== undefined ? [{ kind: "text", text: String(o.label), color: o.labelColor } as Node] : []),
             ],
           },
         },
+  pill: (o: { onClick?: () => void; popover?: () => Node; focused?: boolean; gap?: number }, children: Node[] | Node): Node => ({
+    kind: "pill",
+    onClick: o.onClick,
+    popover: o.popover,
+    focused: o.focused,
+    child: Array.isArray(children) ? { kind: "row", gap: o.gap ?? 6, children } : children,
+  }),
+  stack: (o: { axis?: "h" | "v"; gap?: number }, children: Node[]): Node =>
+    o.axis === "h" ? { kind: "row", gap: o.gap, children } : { kind: "column", gap: o.gap, children },
   column: (children: Node[], gap?: number): Node => ({ kind: "column", children, gap }),
-  text: (text: string, o: Omit<Extract<Node, { kind: "text" }>, "kind" | "text"> = {}): Node => ({ kind: "text", text, ...o }),
+  text: (text: string | number, o: { color?: Color; size?: number; marquee?: boolean; mono?: boolean } = {}): Node => ({ kind: "text", text: String(text), ...o }),
   icon: (name: string, color?: Color): Node => ({ kind: "icon", name, color }),
   image: (src: string, size?: number, radius?: number): Node => ({ kind: "image", src, size, radius }),
   appIcon: (bundleId: string, style: "auto" | "system" | "pack" = "auto"): Node => ({ kind: "appIcon", bundleId, style }),
   graph: (values: number[], color?: Color): Node => ({ kind: "graph", values, color }),
+  sparkline: (values: number[], color?: Color): Node => ({ kind: "graph", values, color }),
   slider: (value: number, onChange: (v: number) => void): Node => ({ kind: "slider", value, onChange }),
   toggle: (value: boolean, onChange: (v: boolean) => void): Node => ({ kind: "toggle", value, onChange }),
-  scene: (scene: SceneOptions): Node => ({ kind: "scene", scene }),
-  globe: (o: GlobeOptions): Node => ({ kind: "scene", scene: { builtin: "globe", ...o } }),
+  button: (label: string, onClick: () => void, icon?: string): Node => ({ kind: "button", label, onClick, icon }),
+  scene: (scene: SceneOptions): Node => ({ kind: "scene", scene, onClick: scene.onClick, popover: scene.popover }),
+  globe: (o: GlobeOptions): Node => ({ kind: "scene", scene: { builtin: "globe", ...o }, onClick: o.onClick, popover: o.popover }),
   spacer: (): Node => ({ kind: "spacer" }),
 };
-
-// ------------------------------------------------------------------- context
-
-export interface SceneControl {
-  play(clip: string, opts?: { once?: boolean; blend?: number }): void;
-  set(part: string, o: { rotation?: [number, number, number]; color?: Color; visible?: boolean }): void;
-  on(event: "click", cb: (part: string) => void): void;
-  clips(): string[];
-}
-
-export interface Context<Config = Record<string, unknown>> {
-  config: Config;
-  theme: Record<string, Color>;
-  use<P extends ProviderName>(provider: P, opts?: { every?: number }): Signal<Providers[P]>;
-  on(topic: string, cb: (payload: unknown) => void): () => void;
-  emit(topic: string, payload?: unknown): void;
-  storage: { get<T>(key: string): T | undefined; set<T>(key: string, value: T): void };
-  fetch(url: string, init?: { method?: string; headers?: Record<string, string>; body?: string }): Promise<{ status: number; text(): Promise<string>; json<T>(): Promise<T> }>;
-  exec(cmd: string, args?: string[]): Promise<{ code: number; stdout: string }>;
-  open(url: string): void;
-  scene: SceneControl;
-}
-
-export interface PluginDefinition<Config> {
-  id: string;
-  permissions?: string[];
-  /** Called once; returns a render function the host calls when inputs change. */
-  setup(ctx: Context<Config>): () => Node;
-}
-
-export function definePlugin<Config = Record<string, unknown>>(def: PluginDefinition<Config>): PluginDefinition<Config> {
-  return def;
-}
-
-// ----------------------------------------------------------------- formatting
 
 export const fmt = {
   percent: (v: number) => `${Math.round(v * 100)}%`,
@@ -171,9 +164,24 @@ export const fmt = {
     }
     return `${v.toFixed(v < 10 && i > 0 ? 1 : 0)} ${units[i]}`;
   },
+  bits: (bps: number): string => fmt.bytesPerSecond(bps),
+  bytes(n: number): string {
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let v = n;
+    let i = 0;
+    while (v >= 1024 && i < units.length - 1) {
+      v /= 1024;
+      i++;
+    }
+    return `${v.toFixed(v < 10 && i > 0 ? 1 : 0)} ${units[i]}`;
+  },
   duration(seconds: number): string {
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);
     return `${m}:${s.toString().padStart(2, "0")}`;
   },
 };
+
+export function definePlugin<Config = Record<string, unknown>>(def: PluginDefinition<Config>): PluginDefinition<Config> {
+  return def;
+}

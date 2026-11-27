@@ -12,6 +12,8 @@ public struct GizmoConfig: Sendable, Equatable, Decodable {
     public var logo: LogoSettings
     public var clock: ClockSettings
     public var media: MediaSettings
+    /// `[plugins.<id>]` tables, handed to each plugin as `ctx.config`.
+    public var plugins: [String: JSONValue]
     public var launchAtLogin: Bool
 
     public init(
@@ -23,6 +25,7 @@ public struct GizmoConfig: Sendable, Equatable, Decodable {
         logo: LogoSettings = .init(),
         clock: ClockSettings = .init(),
         media: MediaSettings = .init(),
+        plugins: [String: JSONValue] = [:],
         launchAtLogin: Bool = false
     ) {
         self.bar = bar
@@ -33,11 +36,12 @@ public struct GizmoConfig: Sendable, Equatable, Decodable {
         self.logo = logo
         self.clock = clock
         self.media = media
+        self.plugins = plugins
         self.launchAtLogin = launchAtLogin
     }
 
     enum CodingKeys: String, CodingKey {
-        case bar, theme, layout, icons, aerospace, logo, clock, media
+        case bar, theme, layout, icons, aerospace, logo, clock, media, plugins
         case launchAtLogin = "launch_at_login"
     }
 
@@ -52,6 +56,7 @@ public struct GizmoConfig: Sendable, Equatable, Decodable {
         logo = try c.decodeIfPresent(LogoSettings.self, forKey: .logo) ?? d.logo
         clock = try c.decodeIfPresent(ClockSettings.self, forKey: .clock) ?? d.clock
         media = try c.decodeIfPresent(MediaSettings.self, forKey: .media) ?? d.media
+        plugins = (try? c.decodeIfPresent([String: JSONValue].self, forKey: .plugins)) ?? d.plugins
         launchAtLogin = try c.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? d.launchAtLogin
     }
 

@@ -184,7 +184,7 @@ public final class PanelManager {
             let hidden = screen.displayID.map { wantsHidden.contains($0) && !revealed.contains($0) } ?? false
             let frame = frame(on: screen, shown: !hidden)
             let panel = BarPanel(frame: frame)
-            let root = BarView().environment(store)
+            let root = BarView().environment(store).environment(store.plugins)
             panel.contentView = NSHostingView(rootView: root)
             panel.setFrame(frame, display: false)
             panel.orderFrontRegardless()
