@@ -33,7 +33,7 @@ public struct MediaSettings: Sendable, Equatable, Decodable {
     /// `bars` (flat cava bars) or `off`.
     public var visualizer: VisualizerStyle
 
-    public init(adapter: String? = nil, spectrum: Bool = true, bands: Int = 24, width: Double = 156,
+    public init(adapter: String? = nil, spectrum: Bool = true, bands: Int = 24, width: Double = 120,
                 visualizer: VisualizerStyle = .ridgeline, audioSources: [String] = []) {
         self.audioSources = audioSources
         self.adapter = adapter

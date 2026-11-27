@@ -38,11 +38,8 @@ struct NowPlayingWidget: View {
             }
         case .audio(let source)?:
             Pill(focused: showing, hovered: hovering) {
-                // Same width as a player's pill, so switching sources doesn't
-                // move the rest of the bar: the icon takes the controls' place.
                 HStack(spacing: 2) {
                     AppIconView(app: AppRef(bundleID: source.id, name: source.name), size: 16)
-                        .frame(width: Self.controlsWidth)
                     label(source.name, key: source.id, source: source.id, playing: source.isActive, tint: t.accent)
                         .padding(.leading, 6)
                 }
@@ -68,7 +65,7 @@ struct NowPlayingWidget: View {
             Marquee(text: text, scrolling: hovering)
                 .font(.custom(t.font, size: t.fontSize))
                 .foregroundStyle(Color(hex: t.label))
-                .opacity(hovering ? 1 : 0.35)
+                .opacity(hovering ? 1 : 0.5)
                 .id(key)
                 .transition(.opacity)
         }
