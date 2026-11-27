@@ -12,6 +12,8 @@ once per frame.
 
 > Status: in development. See the [roadmap](docs/roadmap.md) for what's done.
 
+Website and getting started guide: <https://thomasmelak.github.io/gizmobar/>
+
 ## Build and run
 
 Requires macOS 14+ (Liquid Glass on macOS 26) and Swift 6. The Command Line

@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#2a1a6e"/>
+      <stop offset="0.55" stop-color="#140a45"/>
+      <stop offset="1" stop-color="#0a0428"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="0.5" cy="0.4" r="0.45">
+      <stop offset="0" stop-color="#b77cff" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#b77cff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="line" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d7b8ff"/>
+      <stop offset="1" stop-color="#6e89ff"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.05"/>
+    </linearGradient>
+    <linearGradient id="focus" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#b77cff"/>
+      <stop offset="1" stop-color="#8f6bff"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="10" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+    <clipPath id="squircle">
+      <rect x="100" y="100" width="824" height="824" rx="185" ry="185"/>
+    </clipPath>
+  </defs>
+
+  <!-- tile -->
+  <g filter="url(#shadow)">
+    <rect x="100" y="100" width="824" height="824" rx="185" ry="185" fill="url(#bg)"/>
+  </g>
+  <g clip-path="url(#squircle)">
+    <rect x="100" y="100" width="824" height="824" fill="url(#halo)"/>
+    <!-- faint dot grid -->
+    <g fill="#6e89ff" opacity="0.10">
+      <circle cx="180" cy="180" r="4"/><circle cx="260" cy="180" r="4"/><circle cx="764" cy="180" r="4"/><circle cx="844" cy="180" r="4"/>
+      <circle cx="180" cy="260" r="4"/><circle cx="844" cy="260" r="4"/>
+      <circle cx="180" cy="580" r="4"/><circle cx="844" cy="580" r="4"/>
+    </g>
+
+    <!-- orbit, back half (behind the globe) -->
+    <g transform="translate(512 400) rotate(-24)">
+      <clipPath id="backHalf"><rect x="-320" y="-120" width="640" height="120"/></clipPath>
+      <ellipse rx="290" ry="78" fill="none" stroke="#b77cff" stroke-width="8" stroke-dasharray="2 26" stroke-linecap="round" opacity="0.5" clip-path="url(#backHalf)"/>
+    </g>
+    <!-- wireframe globe: the 3D engine -->
+    <g transform="translate(512 400)" fill="none" stroke="url(#line)" stroke-width="14" stroke-linecap="round">
+      <circle r="190" filter="url(#glow)"/>
+      <ellipse rx="190" ry="62"/>
+      <ellipse rx="190" ry="62" transform="translate(0 -105) scale(0.82 0.62)" opacity="0.7"/>
+      <ellipse rx="190" ry="62" transform="translate(0 105) scale(0.82 0.62)" opacity="0.7"/>
+      <ellipse rx="72" ry="190"/>
+      <line x1="0" y1="-190" x2="0" y2="190" opacity="0.7"/>
+    </g>
+    <!-- orbit, front half + satellite -->
+    <g transform="translate(512 400) rotate(-24)">
+      <clipPath id="frontHalf"><rect x="-320" y="0" width="640" height="120"/></clipPath>
+      <ellipse rx="290" ry="78" fill="none" stroke="#b77cff" stroke-width="8" stroke-dasharray="2 26" stroke-linecap="round" opacity="0.95" clip-path="url(#frontHalf)"/>
+      <circle cx="262" cy="-34" r="22" fill="#e6f4ff" filter="url(#glow)"/>
+    </g>
+
+    <!-- the bar -->
+    <rect x="150" y="704" width="724" height="132" rx="42" fill="url(#glass)" stroke="#ffffff" stroke-opacity="0.22" stroke-width="3"/>
+    <rect x="182" y="730" width="96" height="80" rx="26" fill="#0d0533" fill-opacity="0.55" stroke="#7a74b8" stroke-opacity="0.6" stroke-width="3"/>
+    <rect x="294" y="730" width="150" height="80" rx="26" fill="url(#focus)" filter="url(#glow)"/>
+    <rect x="460" y="730" width="96" height="80" rx="26" fill="#0d0533" fill-opacity="0.55" stroke="#7a74b8" stroke-opacity="0.6" stroke-width="3"/>
+    <!-- focused pill content: two app dots -->
+    <circle cx="336" cy="770" r="15" fill="#ffffff"/>
+    <circle cx="384" cy="770" r="15" fill="#ffffff" opacity="0.75"/>
+    <!-- right side: spectrum bars -->
+    <g fill="#5fd38d">
+      <rect x="704" y="752" width="16" height="36" rx="8"/>
+      <rect x="732" y="738" width="16" height="64" rx="8"/>
+      <rect x="760" y="758" width="16" height="24" rx="8"/>
+      <rect x="788" y="744" width="16" height="52" rx="8"/>
+    </g>
+  </g>
+</svg>
