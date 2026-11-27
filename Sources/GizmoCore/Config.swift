@@ -11,6 +11,7 @@ public struct GizmoConfig: Sendable, Equatable, Decodable {
     public var aerospace: AeroSpaceSettings
     public var logo: LogoSettings
     public var clock: ClockSettings
+    public var media: MediaSettings
     public var launchAtLogin: Bool
 
     public init(
@@ -21,6 +22,7 @@ public struct GizmoConfig: Sendable, Equatable, Decodable {
         aerospace: AeroSpaceSettings = .init(),
         logo: LogoSettings = .init(),
         clock: ClockSettings = .init(),
+        media: MediaSettings = .init(),
         launchAtLogin: Bool = false
     ) {
         self.bar = bar
@@ -30,11 +32,12 @@ public struct GizmoConfig: Sendable, Equatable, Decodable {
         self.aerospace = aerospace
         self.logo = logo
         self.clock = clock
+        self.media = media
         self.launchAtLogin = launchAtLogin
     }
 
     enum CodingKeys: String, CodingKey {
-        case bar, theme, layout, icons, aerospace, logo, clock
+        case bar, theme, layout, icons, aerospace, logo, clock, media
         case launchAtLogin = "launch_at_login"
     }
 
@@ -48,6 +51,7 @@ public struct GizmoConfig: Sendable, Equatable, Decodable {
         aerospace = try c.decodeIfPresent(AeroSpaceSettings.self, forKey: .aerospace) ?? d.aerospace
         logo = try c.decodeIfPresent(LogoSettings.self, forKey: .logo) ?? d.logo
         clock = try c.decodeIfPresent(ClockSettings.self, forKey: .clock) ?? d.clock
+        media = try c.decodeIfPresent(MediaSettings.self, forKey: .media) ?? d.media
         launchAtLogin = try c.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? d.launchAtLogin
     }
 
@@ -72,13 +76,27 @@ public struct BarSettings: Sendable, Equatable, Decodable {
     public var margin: Double
     /// Glass behind each pill. The bar between pills is always transparent.
     public var glass: Bool
+    /// When the bar slides off screen until the pointer touches its edge,
+    /// like the macOS menu bar's auto-hide.
+    public var autohide: AutoHide
 
-    public init(position: Edge = .bottom, height: Double = 40, displays: Displays = .all, margin: Double = 6, glass: Bool = true) {
+    public enum AutoHide: String, Sendable, Decodable {
+        /// Always shown.
+        case never
+        /// Hidden while a fullscreen window covers that display.
+        case fullscreen
+        /// Hidden unless the pointer is at the edge.
+        case always
+    }
+
+    public init(position: Edge = .bottom, height: Double = 40, displays: Displays = .all, margin: Double = 6, glass: Bool = true,
+                autohide: AutoHide = .fullscreen) {
         self.position = position
         self.height = height
         self.displays = displays
         self.margin = margin
         self.glass = glass
+        self.autohide = autohide
     }
 
     public init(from decoder: Decoder) throws {
@@ -89,9 +107,10 @@ public struct BarSettings: Sendable, Equatable, Decodable {
         displays = try c.decodeIfPresent(Displays.self, forKey: .displays) ?? d.displays
         margin = try c.decodeIfPresent(Double.self, forKey: .margin) ?? d.margin
         glass = try c.decodeIfPresent(Bool.self, forKey: .glass) ?? d.glass
+        autohide = try c.decodeIfPresent(AutoHide.self, forKey: .autohide) ?? d.autohide
     }
 
-    enum CodingKeys: String, CodingKey { case position, height, displays, margin, glass }
+    enum CodingKeys: String, CodingKey { case position, height, displays, margin, glass, autohide }
 }
 
 /// Which widgets go where, by id. Built-ins: `workspaces`, `front_app`,
@@ -101,7 +120,10 @@ public struct Layout: Sendable, Equatable, Decodable {
     public var center: [String]
     public var right: [String]
 
-    public init(left: [String] = ["logo", "workspaces"], center: [String] = ["front_app"], right: [String] = ["network", "system", "battery", "brightness", "volume", "theme", "clock"]) {
+    /// Every widget id in the layout.
+    public var all: [String] { left + center + right }
+
+    public init(left: [String] = ["logo", "workspaces"], center: [String] = ["front_app"], right: [String] = ["now_playing", "network", "system", "battery", "brightness", "volume", "theme", "clock"]) {
         self.left = left
         self.center = center
         self.right = right

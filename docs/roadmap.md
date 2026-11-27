@@ -33,8 +33,12 @@ reaches parity.
 
 ## Phase 3: now playing
 
-mediaremote-adapter, art pipeline, color extraction, crossfades, marquee,
-Metal spectrum from a Core Audio process tap.
+- [x] Media provider: Spotify and Music by AppleScript on their change notifications, any app through mediaremote-adapter, `nowplaying-cli` fallback
+- [x] Art pipeline: disk cache, color picked from the art, crossfades
+- [x] Marquee track text (scrolls on hover only), source picker, scrubbing, shuffle and repeat
+- [x] Spectrum from a Core Audio process tap (vDSP FFT), animated fallback
+- [x] Popover with tilting art
+- [ ] Spectrum drawn with Canvas; move to Metal if it misses the 2% CPU budget while playing
 
 ## Phase 4: plugin SDK
 

@@ -18,6 +18,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var audio: AudioProvider!
     private var displays: DisplaysProvider!
     private var apps: AppsProvider!
+    private var media: MediaProvider!
+    private var spectrum: SpectrumProvider!
     private var providers: [any Provider] = []
     private var watcher: ConfigWatcher?
 
@@ -34,7 +36,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         audio = AudioProvider()
         displays = DisplaysProvider()
         apps = AppsProvider()
-        providers = [ClockProvider(), apps, aerospace, SystemProvider(), network, battery, audio, displays]
+        media = MediaProvider(settings: config.media)
+        spectrum = SpectrumProvider(settings: config.media)
+        providers = [ClockProvider(), apps, aerospace, SystemProvider(), network, battery, audio, displays, media, spectrum]
+        watchPlayback()
         store.onRequest = { [weak self] name in self?.handleRequest(name) }
         store.onFocusWorkspace = { [aerospace] ws in
             Task { await aerospace?.focus(workspace: ws) }
@@ -89,7 +94,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         default: break
         }
-        let network = self.network!, battery = self.battery!, audio = self.audio!, displays = self.displays!
+        let network = self.network!, battery = self.battery!, audio = self.audio!, displays = self.displays!, media = self.media!
         Task {
             switch action {
             case BarRequest.refreshConnectivity: await network.refreshConnectivity()
@@ -103,6 +108,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case BarRequest.toggleMute: await audio.toggleMute()
             case "audio.volume": if let v = arg.flatMap(Double.init) { await audio.setVolume(v) }
             case "audio.output": if let id = arg.flatMap(UInt32.init) { await audio.select(id) }
+            case BarRequest.mediaToggle: await media.send(.toggle)
+            case BarRequest.mediaNext: await media.send(.next)
+            case BarRequest.mediaPrevious: await media.send(.previous)
+            case BarRequest.mediaShuffle: await media.send(.shuffle)
+            case BarRequest.mediaRepeat: await media.send(.repeat)
+            case "media.seek": if let v = arg.flatMap(Double.init) { await media.seek(v) }
+            case "media.select": if let id = arg { await media.select(id) }
             case BarRequest.refreshDisplays: await displays.refresh()
             case BarRequest.toggleNightShift: await displays.toggleNightShift()
             case "displays.brightness":
@@ -111,6 +123,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 if let a = Self.displayArg(arg) { await displays.setContrast(display: a.0, a.1) }
             case "displays.warmth": if let v = arg.flatMap(Int.init) { await displays.setWarmth(v) }
             default: NSLog("gizmobar: unknown request \(name)")
+            }
+        }
+    }
+
+    /// Runs the audio tap only while something plays and the bar shows it.
+    private func watchPlayback() {
+        let bus = self.bus, spectrum = self.spectrum!
+        Task { @MainActor [weak self] in
+            var wasPlaying = false
+            for await event in await bus.subscribe(prefixes: [Topic.media, Topic.configReloaded]) {
+                guard let self else { return }
+                let status = event.topic == Topic.media ? event.payload.decode(NowPlayingStatus.self) : self.store.snapshot.nowPlaying
+                let shown = self.store.config.layout.all.contains("now_playing")
+                let playing = shown && (status?.current?.isPlaying ?? false)
+                if playing != wasPlaying {
+                    wasPlaying = playing
+                    await spectrum.setRunning(playing)
+                }
             }
         }
     }
@@ -177,6 +207,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.config = config
         store.theme = Theme.load(named: config.theme)
         store.invalidateIcons(makeResolver(config))
+        let media = self.media!, spectrum = self.spectrum!
+        Task {
+            await media.update(settings: config.media)
+            await spectrum.update(settings: config.media)
+        }
         if layoutChanged { panels.rebuild() }
         Task { await bus.publish(topic: Topic.configReloaded) }
     }

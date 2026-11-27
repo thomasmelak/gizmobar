@@ -10,8 +10,7 @@ processes. Here nothing on the render path starts a process: providers read
 macOS APIs in-process, push events onto one bus, and SwiftUI redraws at most
 once per frame.
 
-> Status: early scaffold (Phase 1). Logo, workspaces, front app and clock work;
-> everything else is on the [roadmap](docs/roadmap.md).
+> Status: in development. See the [roadmap](docs/roadmap.md) for what's done.
 
 ## Build and run
 
@@ -52,6 +51,23 @@ With AeroSpace 0.21+ the bar keeps one `aerospace subscribe` stream open, so
 ```toml
 exec-on-workspace-change = ['gizmo', 'trigger', 'aerospace.workspace']
 ```
+
+## Now playing
+
+Spotify and Music work out of the box (macOS asks once to let Gizmobar
+control them). For any other app (browsers, podcasts) install
+[mediaremote-adapter](https://github.com/ungive/mediaremote-adapter) and
+point the bar at it:
+
+```toml
+[media]
+adapter = "~/.local/share/mediaremote-adapter"   # holds mediaremote-adapter.pl + the framework
+```
+
+Without it the bar falls back to `nowplaying-cli` when that's installed.
+The spectrum comes from a Core Audio tap (macOS 14.2+, asks for audio
+capture once); deny it or set `spectrum = false` and the bars animate on
+their own.
 
 ## Configuration
 
