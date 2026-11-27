@@ -586,6 +586,8 @@ struct MediaTests {
         #expect(h.cards.map(\.title) == ["A"])
         h.setArt(key: a.key, path: "/tmp/a.jpg", color: "#ff0000")
         #expect(h.cards.first?.artworkPath == "/tmp/a.jpg")
+    }
+
     @Test func busKeepsEachSourcesSpectrum() async {
         let bus = EventBus(flushWindow: .seconds(60))
         let stream = await bus.subscribe(prefixes: [Topic.spectrum])
