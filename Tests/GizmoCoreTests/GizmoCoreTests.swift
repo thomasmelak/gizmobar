@@ -553,3 +553,29 @@ struct MediaTests {
         #expect(try GizmoConfig.parse("").layout.right.first == "now_playing")
     }
 }
+
+@Suite("AutoHide")
+struct AutoHideTests {
+    let screen = CGRect(x: 0, y: 0, width: 1512, height: 982)
+
+    @Test func detectsFullscreenWindows() {
+        #expect(AutoHideRules.isFullscreen(windows: [CGRect(x: 0, y: 0, width: 1512, height: 982)], display: screen))
+        #expect(!AutoHideRules.isFullscreen(windows: [CGRect(x: 0, y: 38, width: 1512, height: 944)], display: screen))
+        #expect(!AutoHideRules.isFullscreen(windows: [], display: screen))
+    }
+
+    @Test func zones() {
+        let t = AutoHideRules.triggerZone(screen: screen, bottom: true)
+        #expect(t.contains(CGPoint(x: 700, y: 1)))
+        #expect(!t.contains(CGPoint(x: 700, y: 5)))
+        let k = AutoHideRules.keepZone(screen: screen, bottom: true, height: 40)
+        #expect(k.contains(CGPoint(x: 700, y: 45)))
+        #expect(!k.contains(CGPoint(x: 700, y: 60)))
+        #expect(AutoHideRules.triggerZone(screen: screen, bottom: false).contains(CGPoint(x: 10, y: 981)))
+    }
+
+    @Test func configDefault() throws {
+        #expect(try GizmoConfig.parse("").bar.autohide == .fullscreen)
+        #expect(try GizmoConfig.parse("[bar]\nautohide = \"never\"").bar.autohide == .never)
+    }
+}
