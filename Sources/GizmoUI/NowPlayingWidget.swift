@@ -58,16 +58,21 @@ struct NowPlayingWidget: View {
 
     private func label(_ text: String, key: String, source: String, playing: Bool, tint: String) -> some View {
         let t = store.theme
+        // The visualizer leads with the title faint over it; hovering swaps
+        // to the full title, scrolling.
         return ZStack {
             // Inset from the pill's border so the ridges never touch it.
-            AudioVisualizer(source: source, playing: playing, colors: [tint], placement: .bar, opacity: 0.6, cornerRadius: 4)
+            AudioVisualizer(source: source, playing: playing, colors: [tint], placement: .bar, opacity: 0.9, cornerRadius: 4)
                 .padding(.vertical, 3)
+                .opacity(hovering ? 0 : 1)
             Marquee(text: text, scrolling: hovering)
                 .font(.custom(t.font, size: t.fontSize))
                 .foregroundStyle(Color(hex: t.label))
+                .opacity(hovering ? 1 : 0.35)
                 .id(key)
                 .transition(.opacity)
         }
+        .animation(.easeInOut(duration: 0.2), value: hovering)
         .frame(width: store.config.media.width)
         .barAction(onHover: { hovering = $0 }) { showing.toggle() }
     }
