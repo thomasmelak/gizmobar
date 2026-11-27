@@ -188,7 +188,8 @@ struct SceneSlot: View {
             .frame(width: size, height: size)
             .overlay(PointerArea(pointer: onClick != nil || popover != nil || o.popoverSize != nil, onHover: nil))
             .help(inPopover ? "" : (o.caption ?? ""))
-            .barPopover(id: "scene.\(plugin)", isPresented: $showing) {
+            // A model on its own floats without the popover's panel.
+            .barPopover(id: "scene.\(plugin)", isPresented: $showing, chrome: popover != nil) {
                 LiveScenePopover(plugin: plugin, live: live) { o, s in
                     content(o, size: s, orbit: o.orbit)
                 }
@@ -271,6 +272,8 @@ private struct LiveScenePopover<Scene: View>: View {
                 if let c = o.caption {
                     Text(c).font(.custom(store.theme.font, size: store.theme.fontSize))
                         .foregroundStyle(Color(hex: store.theme.label))
+                        .shadow(color: .black.opacity(0.8), radius: 3)
+                        .shadow(color: .black.opacity(0.5), radius: 8)
                 }
             }
         }
