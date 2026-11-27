@@ -50,6 +50,12 @@ public final class VisualizerView: MTKView, MTKViewDelegate {
     private let renderer: VisualizerRenderer?
     private var lastTime: CFTimeInterval = 0
     private var occlusionObserver: NSObjectProtocol?
+    /// Our own display link, in `.common` mode so frames keep coming while
+    /// the mouse is tracking or SwiftUI is busy (MTKView's loop stalls then).
+    private var link: CADisplayLink?
+    /// The popover's window reports itself occluded until it has ordered
+    /// in, so assume a new window is visible until it says otherwise.
+    private var visible = false
 
     public init(config: VisualizerConfig) {
         self.config = config
@@ -64,6 +70,7 @@ public final class VisualizerView: MTKView, MTKViewDelegate {
         layer?.isOpaque = false
         autoResizeDrawable = true
         enableSetNeedsDisplay = false
+        isPaused = true
         delegate = self
         apply(config, force: true)
     }
@@ -79,7 +86,9 @@ public final class VisualizerView: MTKView, MTKViewDelegate {
         if c.bars != config.bars || c.source != config.source { analyzer = CavaAnalyzer(bars: c.bars) }
         if c.style != config.style || c.placement != config.placement { renderer?.reset() }
         config = c
-        preferredFramesPerSecond = c.placement == .popup ? 60 : 30
+        let fps = Float(c.placement == .popup ? 60 : 30)
+        preferredFramesPerSecond = Int(fps)
+        link?.preferredFrameRateRange = CAFrameRateRange(minimum: fps / 2, maximum: fps, preferred: fps)
         renderer?.setColors(c.colors)
         wake()
     }
@@ -88,37 +97,61 @@ public final class VisualizerView: MTKView, MTKViewDelegate {
         super.viewDidMoveToWindow()
         if let o = occlusionObserver { NotificationCenter.default.removeObserver(o) }
         occlusionObserver = nil
+        link?.invalidate()
+        link = nil
+        visible = window != nil
         if let window {
             occlusionObserver = NotificationCenter.default.addObserver(
                 forName: NSWindow.didChangeOcclusionStateNotification, object: window, queue: .main
-            ) { [weak self] _ in MainActor.assumeIsolated { self?.wake() } }
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self, let w = self.window else { return }
+                    self.visible = w.occlusionState.contains(.visible)
+                    self.wake()
+                }
+            }
+            let l = displayLink(target: self, selector: #selector(tick))
+            let fps = Float(preferredFramesPerSecond)
+            l.preferredFrameRateRange = CAFrameRateRange(minimum: fps / 2, maximum: fps, preferred: fps)
+            l.isPaused = true
+            l.add(to: .main, forMode: .common)
+            link = l
         }
         wake()
     }
 
+    public override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        if link?.isPaused ?? true, visible, newSize.width > 0 { draw() }
+    }
+
+    @objc private func tick(_ l: CADisplayLink) { draw() }
+
     /// Runs the loop while there's something to show and someone to see it.
     private func wake() {
-        let visible = window?.occlusionState.contains(.visible) ?? false
         let run = visible && (config.playing || !analyzer.isSettled)
-        if run, isPaused { lastTime = 0 }
-        isPaused = !run
+        if run, link?.isPaused ?? true { lastTime = 0 }
+        link?.isPaused = !run
         if !run, visible { draw() } // leave a settled frame
     }
 
     public func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
 
     public func draw(in view: MTKView) {
+        guard let renderer, drawableSize.width > 0, drawableSize.height > 0, renderer.beginFrame() else { return }
         let now = CACurrentMediaTime()
         let dt = lastTime == 0 ? 1.0 / Double(preferredFramesPerSecond) : min(now - lastTime, 0.1)
         lastTime = now
         analyzer.update(source: config.source, playing: config.playing, dt: dt,
                         fakeWhenMissing: config.placement != .row)
-        if let renderer, let pass = currentRenderPassDescriptor, let drawable = currentDrawable {
-            renderer.draw(analyzer.bars, dt: dt, config: config, pass: pass, drawable: drawable,
-                          viewport: SIMD2(Float(drawableSize.width), Float(drawableSize.height)),
-                          scale: Float(window?.backingScaleFactor ?? 2))
+        guard let pass = currentRenderPassDescriptor, let drawable = currentDrawable else {
+            renderer.cancelFrame()
+            return
         }
-        if !config.playing, analyzer.isSettled { isPaused = true }
+        renderer.draw(analyzer.bars, dt: dt, config: config, pass: pass, drawable: drawable,
+                      viewport: SIMD2(Float(drawableSize.width), Float(drawableSize.height)),
+                      scale: Float(window?.backingScaleFactor ?? 2))
+        if !config.playing, analyzer.isSettled { link?.isPaused = true }
     }
 }
 
@@ -189,6 +222,11 @@ final class VisualizerRenderer {
 
     func reset() { rows = 0 }
 
+    /// Takes a slot for one frame, or false when the GPU is still behind;
+    /// the caller skips the frame instead of blocking the main thread.
+    func beginFrame() -> Bool { inFlight.wait(timeout: .now()) == .success }
+    func cancelFrame() { inFlight.signal() }
+
     func setColors(_ hex: [String]) { colors = Self.stops(hex) }
 
     func draw(_ bars: [Float], dt: Double, config: VisualizerConfig, pass: MTLRenderPassDescriptor,
@@ -198,7 +236,6 @@ final class VisualizerRenderer {
         pass.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
         pass.depthAttachment?.loadAction = .clear
         pass.depthAttachment?.clearDepth = 1
-        inFlight.wait()
         guard let cmd = queue.makeCommandBuffer() else { inFlight.signal(); return }
         let sem = inFlight
         cmd.addCompletedHandler { _ in sem.signal() }
