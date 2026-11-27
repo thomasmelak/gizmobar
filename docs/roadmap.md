@@ -67,3 +67,7 @@ reaches parity.
 
 Remove SketchyBar from `aerospace.toml` and login items; move bar config
 to `gizmobar/.config/gizmobar` in dotfiles.
+
+## Website
+
+- [x] Landing page and getting started guide in `docs/`, served by GitHub Pages (main, `/docs`)

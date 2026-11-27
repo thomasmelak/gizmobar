@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Getting started · Gizmobar</title>
+  <meta name="description" content="Install Gizmobar, set up your config, connect AeroSpace and now playing, and write your first plugin.">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Kode+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<nav>
+  <div class="wrap">
+    <a class="brand" href="./"><img src="assets/icon.svg" alt="">Gizmobar</a>
+    <div class="links">
+      <a href="./" class="hide-sm">Home</a>
+      <a href="https://github.com/thomasmelak/gizmobar/blob/main/docs/plugins.md">Plugins</a>
+      <a href="https://github.com/thomasmelak/gizmobar">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap doc">
+  <aside>
+    <a href="#install">Install</a>
+    <a href="#config">Configure</a>
+    <a href="#aerospace">AeroSpace</a>
+    <a href="#media">Now playing</a>
+    <a href="#themes">Themes and icons</a>
+    <a href="#plugins">First plugin</a>
+    <a href="#cli">CLI</a>
+    <a href="#trouble">Troubleshooting</a>
+    <a href="#more">More docs</a>
+  </aside>
+
+  <article>
+    <h1>Getting started</h1>
+    <p>This takes about ten minutes, most of it the first build.</p>
+
+    <h2 id="install">Install</h2>
+    <p>You need <strong>macOS 14 or newer</strong> and <strong>Swift 6</strong>. The Xcode Command Line Tools are enough (<code>xcode-select --install</code>); full Xcode works too.</p>
+    <ol class="steps">
+      <li>
+        <h3>Build and install</h3>
+<pre>git clone https://github.com/thomasmelak/gizmobar
+<span class="f">cd</span> gizmobar
+make test      <span class="c"># optional: run the unit tests</span>
+make install   <span class="c"># Gizmobar.app into /Applications, `gizmo` into ~/.local/bin</span></pre>
+        <p>Make sure <code>~/.local/bin</code> is on your <code>PATH</code>.</p>
+      </li>
+      <li>
+        <h3>Sign it (recommended)</h3>
+        <p>macOS ties privacy grants (automation, audio capture) to the app's signature. Sign with a stable identity so they survive rebuilds:</p>
+<pre>SIGN_IDENTITY=<span class="s">"Apple Development: Your Name (TEAMID)"</span> make install</pre>
+        <p>List your identities with <code>security find-identity -v -p codesigning</code>.</p>
+      </li>
+      <li>
+        <h3>Copy the example config and start</h3>
+<pre>make config          <span class="c"># copies examples/gizmobar into ~/.config/gizmobar (never overwrites)</span>
+open -a Gizmobar
+gizmo ping           <span class="c"># → pong</span></pre>
+      </li>
+      <li>
+        <h3>Start at login</h3>
+        <p>Set <code>launch_at_login = true</code> in config.toml, or start it from AeroSpace (see below).</p>
+      </li>
+    </ol>
+    <p class="note">Coming from SketchyBar? Stop it first so the two bars don't overlap: <code>brew services stop sketchybar</code>, and remove its lines from <code>aerospace.toml</code>.</p>
+
+    <h2 id="config">Configure</h2>
+    <p>Everything lives in <code>~/.config/gizmobar/</code>. Every key is optional; <code>gizmo reload</code> applies changes.</p>
+<pre>config.toml          <span class="c"># layout, bar, clock, icons, media, plugins</span>
+themes/&lt;name&gt;.toml   <span class="c"># your themes; missing keys fall back to Gizmo</span>
+icon-packs/&lt;id&gt;/     <span class="c"># extra or replacement icon packs</span>
+plugins/&lt;id&gt;/        <span class="c"># TypeScript plugins</span></pre>
+    <p>A small config.toml:</p>
+<pre>theme = <span class="s">"gizmo"</span>
+
+[bar]
+position = <span class="s">"bottom"</span>          <span class="c"># bottom | top</span>
+height = <span class="n">40</span>
+glass = <span class="k">true</span>                 <span class="c"># glass pills on a transparent bar</span>
+autohide = <span class="s">"fullscreen"</span>      <span class="c"># never | fullscreen | always</span>
+
+[layout]
+left = [<span class="s">"logo"</span>, <span class="s">"workspaces"</span>]
+center = [<span class="s">"front_app"</span>]
+right = [<span class="s">"now_playing"</span>, <span class="s">"network"</span>, <span class="s">"system"</span>, <span class="s">"battery"</span>, <span class="s">"volume"</span>, <span class="s">"clock"</span>]
+
+[clock]
+format = <span class="s">"EEE dd MMM HH:mm"</span>
+
+[[clock.world]]
+zone = <span class="s">"America/New_York"</span>
+inline = <span class="k">true</span></pre>
+    <p>Built-in widgets: <code>logo</code>, <code>workspaces</code>, <code>front_app</code>, <code>now_playing</code>, <code>network</code>, <code>system</code>, <code>battery</code>, <code>brightness</code>, <code>volume</code>, <code>theme</code>, <code>clock</code>, <code>globe</code>. Any plugin id goes in a layout list too. The full example with every option is <a href="https://github.com/thomasmelak/gizmobar/blob/main/examples/gizmobar/config.toml">examples/gizmobar/config.toml</a>.</p>
+
+    <h2 id="aerospace">AeroSpace</h2>
+    <p>With AeroSpace 0.21 or newer the bar keeps one <code>aerospace subscribe</code> stream open, so <code>aerospace.toml</code> needs no bar callbacks. To start the bar with AeroSpace:</p>
+<pre>after-startup-command = [<span class="s">'exec-and-forget open -g -a Gizmobar'</span>]</pre>
+    <p>Match the bar height with a gap, e.g. <code>outer.bottom = 40</code> for a bottom bar. On older AeroSpace versions set <code>[aerospace] mode = "callback"</code> and add:</p>
+<pre>exec-on-workspace-change = [<span class="s">'gizmo'</span>, <span class="s">'trigger'</span>, <span class="s">'aerospace.workspace'</span>]</pre>
+
+    <h2 id="media">Now playing</h2>
+    <p>Spotify and Music work out of the box; macOS asks once to let Gizmobar control them. For browsers, podcasts and any other app, install <a href="https://github.com/ungive/mediaremote-adapter">mediaremote-adapter</a> and point the bar at it:</p>
+<pre>[media]
+adapter = <span class="s">"~/.local/share/mediaremote-adapter"</span>
+spectrum = <span class="k">true</span>    <span class="c"># live bars from a Core Audio tap (asks for audio capture once)</span></pre>
+    <p>Without the adapter the bar falls back to <code>nowplaying-cli</code> when it is installed. Deny audio capture or set <code>spectrum = false</code> and the bars animate on their own.</p>
+
+    <h2 id="themes">Themes and icons</h2>
+    <p>Twelve themes are bundled: Gizmo, Nord, Dracula, Catppuccin Mocha, Tokyo Night, Gruvbox, Rosé Pine, Kanagawa, Everforest, One Dark, Solarized and Default. Pick one from the <code>theme</code> widget, or set <code>theme = "nord"</code>. Your own <code>themes/&lt;name&gt;.toml</code> wins by name.</p>
+    <p>App icons resolve per bundle ID: a per-app override, then your custom pack, then the other packs in order, then the fallback. Start your own pack and drop <code>&lt;bundle-id&gt;.svg</code> files into it; the bar picks them up live:</p>
+<pre>gizmo icons init my-icons      <span class="c"># then set [icons] custom_pack = "my-icons"</span>
+gizmo icons missing            <span class="c"># apps without an icon, most used first</span></pre>
+    <p>Right-click any app icon on the bar to switch it to the system icon or choose a file.</p>
+
+    <h2 id="plugins">Your first plugin</h2>
+<pre>brew install esbuild           <span class="c"># the bar rebuilds plugins on every save</span>
+gizmo new my-plugin            <span class="c"># ~/.config/gizmobar/plugins/my-plugin</span></pre>
+    <p>Add <code>"my-plugin"</code> to a <code>[layout]</code> list and edit <code>index.ts</code>:</p>
+<pre><span class="k">import</span> { definePlugin, ui, fmt } <span class="k">from</span> <span class="s">"@gizmobar/sdk"</span>;
+
+<span class="k">export default</span> <span class="f">definePlugin</span>({
+  id: <span class="s">"my-plugin"</span>,
+  <span class="f">setup</span>(ctx) {
+    <span class="k">const</span> cpu = ctx.<span class="f">use</span>(<span class="s">"cpu"</span>, { every: <span class="s">"2s"</span> });
+    <span class="k">return</span> () => ui.<span class="f">row</span>({ icon: <span class="s">"cpu"</span>, label: fmt.<span class="f">percent</span>(cpu.value?.usage ?? <span class="n">0</span>) });
+  },
+});</pre>
+    <p>List what it uses in <code>plugin.json</code> (<code>"permissions": ["provider:cpu"]</code>) and save. Types for every provider are in the generated <code>gizmobar.d.ts</code>. The <a href="https://github.com/thomasmelak/gizmobar/blob/main/docs/plugins.md">plugin guide</a> covers widgets, popovers, fetch, storage, 3D scenes and the guard rails. Four examples ship in <a href="https://github.com/thomasmelak/gizmobar/tree/main/examples/gizmobar/plugins">examples/gizmobar/plugins</a>.</p>
+
+    <h2 id="cli">CLI</h2>
+    <div class="table-scroll">
+    <table>
+      <tr><th>Command</th><th>What it does</th></tr>
+      <tr><td><code>gizmo ping</code></td><td>Check that the bar is running</td></tr>
+      <tr><td><code>gizmo reload</code></td><td>Re-read config, theme and icon packs</td></tr>
+      <tr><td><code>gizmo state</code></td><td>Print what the bar currently shows</td></tr>
+      <tr><td><code>gizmo trigger &lt;topic&gt; k=v</code></td><td>Push your own event onto the bus (plugins get it with <code>ctx.on</code>)</td></tr>
+      <tr><td><code>gizmo icons missing</code></td><td>Apps the icon packs don't cover, most used first</td></tr>
+      <tr><td><code>gizmo icons init &lt;id&gt;</code></td><td>Start a custom icon pack</td></tr>
+      <tr><td><code>gizmo new &lt;id&gt;</code></td><td>Scaffold a TypeScript plugin</td></tr>
+      <tr><td><code>gizmo types</code></td><td>Print the <code>@gizmobar/sdk</code> declarations</td></tr>
+      <tr><td><code>gizmo debug</code></td><td>Plugin render times, budget overruns and provider update counts</td></tr>
+      <tr><td><code>gizmo plugins reload|log|resume &lt;id&gt;</code></td><td>Reload a plugin, show its console, resume a paused one</td></tr>
+    </table>
+    </div>
+
+    <h2 id="trouble">Troubleshooting</h2>
+    <h3>The bar doesn't show up</h3>
+    <p>Run <code>gizmo ping</code>. If it can't connect, the app isn't running: <code>open -a Gizmobar</code>. If a config error stops it, check Console.app for "Gizmobar".</p>
+    <h3>Privacy prompts come back after every build</h3>
+    <p>The app is signed ad hoc. Install with <code>SIGN_IDENTITY</code> set (see Install, step 2).</p>
+    <h3>Now playing is empty for a browser</h3>
+    <p>Install mediaremote-adapter and set <code>[media] adapter</code>. Spotify and Music need the automation prompt accepted: System Settings → Privacy &amp; Security → Automation → Gizmobar.</p>
+    <h3>A plugin shows a warning pill</h3>
+    <p>Hover it for the error, or run <code>gizmo plugins log &lt;id&gt;</code>. A plugin that keeps blowing its 2 ms render budget is paused; <code>gizmo debug</code> shows it and <code>gizmo plugins resume &lt;id&gt;</code> brings it back.</p>
+    <h3><code>make test</code> can't find Testing</h3>
+    <p>Use <code>make test</code>, not <code>swift test</code>. With only the Command Line Tools, the Makefile adds the swift-testing framework path that SwiftPM misses.</p>
+
+    <h2 id="more">More docs</h2>
+    <ul>
+      <li><a href="https://github.com/thomasmelak/gizmobar/blob/main/docs/plugins.md">Writing plugins</a></li>
+      <li><a href="https://github.com/thomasmelak/gizmobar/blob/main/docs/architecture.md">Architecture</a></li>
+      <li><a href="https://github.com/thomasmelak/gizmobar/blob/main/docs/roadmap.md">Roadmap</a></li>
+    </ul>
+  </article>
+</div>
+
+<footer>
+  <div class="wrap">
+    <span>Gizmobar · built in Swift for macOS</span>
+    <div class="right">
+      <a href="./">Home</a>
+      <a href="https://github.com/thomasmelak/gizmobar">GitHub</a>
+    </div>
+  </div>
+</footer>
+</body>
+</html>
