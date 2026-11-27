@@ -69,19 +69,31 @@ public actor AeroSpaceProvider: Provider {
     private func snapshot() async {
         guard let binary, let bus else { return }
         do {
-            async let all = Command.run(binary, ["list-workspaces", "--all", "--json"])
+            async let all = workspaces(binary)
             async let focused = Command.run(binary, ["list-workspaces", "--focused", "--json"])
             async let windows = Command.run(binary, [
                 "list-windows", "--all", "--json",
                 "--format", "%{window-id} %{workspace} %{app-bundle-id} %{app-name}",
             ])
-            let ws = try JSONValue(parsing: try await all).array?.compactMap { $0["workspace"] } ?? []
+            let ws = try await all
             let f = try JSONValue(parsing: try await focused).array?.first?["workspace"] ?? .null
             let wins = try JSONValue(parsing: try await windows)
             await bus.publish(topic: Topic.aerospaceSnapshot, payload: ["workspaces": .array(ws), "focused": f, "windows": wins])
         } catch {
             await bus.publish(topic: "gizmobar.warning", payload: ["message": .string("aerospace snapshot failed: \(error)")])
         }
+    }
+
+    /// Every workspace with its monitor and whether that monitor shows it.
+    /// Falls back to bare names on AeroSpace versions without those fields.
+    private func workspaces(_ binary: String) async throws -> [JSONValue] {
+        let fields = "%{workspace} %{monitor-appkit-nsscreen-screens-id} %{workspace-is-visible}"
+        if let out = try? await Command.run(binary, ["list-workspaces", "--all", "--json", "--format", fields]),
+           let list = try? JSONValue(parsing: out).array {
+            return list
+        }
+        return try JSONValue(parsing: try await Command.run(binary, ["list-workspaces", "--all", "--json"]))
+            .array?.compactMap { $0["workspace"] } ?? []
     }
 
     private func startStream(attempt: Int) {
@@ -110,7 +122,8 @@ public actor AeroSpaceProvider: Provider {
               let name = value["_event"]?.string else { return }
         usingSubscribe = true
         await bus.publish(topic: "aerospace.\(name)", key: nil, payload: value)
-        if name == "window-detected" || name == "focus-changed" || name == "focused-monitor-changed" {
+        if name == "window-detected" || name == "focus-changed" || name == "focused-monitor-changed"
+            || name == "focused-workspace-changed" {
             refresh()
         }
     }

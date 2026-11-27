@@ -101,6 +101,7 @@ inline = <span class="k">true</span></pre>
     <h2 id="aerospace">AeroSpace</h2>
     <p>With AeroSpace 0.21 or newer the bar keeps one <code>aerospace subscribe</code> stream open, so <code>aerospace.toml</code> needs no bar callbacks. To start the bar with AeroSpace:</p>
 <pre>after-startup-command = [<span class="s">'exec-and-forget open -g -a Gizmobar'</span>]</pre>
+    <p>With more than one display, each bar shows only the workspaces AeroSpace has on that monitor, with the one it is showing highlighted. Set <code>[aerospace] per_monitor = false</code> to list every workspace on every bar.</p>
     <p>Match the bar height with a gap, e.g. <code>outer.bottom = 40</code> for a bottom bar. On older AeroSpace versions set <code>[aerospace] mode = "callback"</code> and add:</p>
 <pre>exec-on-workspace-change = [<span class="s">'gizmo'</span>, <span class="s">'trigger'</span>, <span class="s">'aerospace.workspace'</span>]</pre>
 
