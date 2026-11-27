@@ -30,8 +30,8 @@ public struct IconSettings: Sendable, Equatable, Decodable {
 
     public init(
         style: Style = .custom,
-        customPack: String? = "tefer-line",
-        packs: [String] = ["sketchybar-app-font"],
+        customPack: String? = "custom-icons",
+        packs: [String] = ["tefer-line", "sketchybar-app-font"],
         fallback: Fallback = .system,
         tint: Tint = .brand,
         systemLook: SystemLook = .mono,

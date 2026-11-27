@@ -12,22 +12,27 @@ struct PopupHeader<Trailing: View>: View {
     var action: (@MainActor () -> Void)?
     @ViewBuilder var trailing: Trailing
     @Environment(BarStore.self) private var store
+    @Environment(PopoverPin.self) private var pin: PopoverPin?
     @State private var hovering = false
 
     var body: some View {
         let t = store.theme
-        HStack(spacing: 0) {
-            Image(systemName: icon)
-                .font(.system(size: 16, weight: .light))
-                .frame(width: 36, alignment: .leading)
-            Text(title)
-                .font(.custom(t.font, size: t.fontSize + 1).weight(.semibold))
-            Spacer(minLength: 16)
-            trailing
+        HStack(spacing: 8) {
+            HStack(spacing: 0) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .light))
+                    .frame(width: 36, alignment: .leading)
+                Text(title)
+                    .font(.custom(t.font, size: t.fontSize + 1).weight(.semibold))
+                Spacer(minLength: 16)
+                trailing
+            }
+            .foregroundStyle(Color(hex: hovering && action != nil ? t.label : t.accent))
+            .barAction(onHover: { hovering = $0 }, action)
+            if pin != nil { PinButton() }
         }
-        .foregroundStyle(Color(hex: hovering && action != nil ? t.label : t.accent))
         .padding(.bottom, 4)
-        .barAction(onHover: { hovering = $0 }, action)
+        .preference(key: HeaderPinKey.self, value: pin != nil)
     }
 }
 
@@ -46,6 +51,7 @@ struct PopupRow<Accessory: View>: View {
     var action: (@MainActor () -> Void)?
     @ViewBuilder var accessory: Accessory
     @Environment(BarStore.self) private var store
+    @Environment(PopoverPin.self) private var pin: PopoverPin?
     @State private var hovering = false
 
     var body: some View {
@@ -139,21 +145,61 @@ private struct PieSlice: Shape {
 }
 
 /// An on/off switch drawn in the theme colors (SketchyBar's switch.sh).
+/// A click flips it at once and spins in the knob until `isOn` follows,
+/// so slow changes (Bluetooth, Wi-Fi) don't feel stuck. If nothing changes
+/// within 10 s it settles back on the real state.
 struct BarSwitch: View {
     let isOn: Bool
     let action: @MainActor () -> Void
     @Environment(BarStore.self) private var store
+    @State private var pending: Bool?
 
     var body: some View {
         let t = store.theme
+        let shown = pending ?? isOn
         Capsule()
-            .fill(Color(hex: isOn ? t.accent : t.itemBorder))
+            .fill(Color(hex: shown ? t.accent : t.itemBorder))
+            .opacity(pending == nil ? 1 : 0.75)
             .frame(width: 30, height: 16)
-            .overlay(alignment: isOn ? .trailing : .leading) {
-                Circle().fill(Color(hex: t.label)).frame(width: 12, height: 12).padding(2)
+            .overlay(alignment: shown ? .trailing : .leading) {
+                ZStack {
+                    Circle().fill(Color(hex: t.label)).frame(width: 12, height: 12)
+                    if pending != nil {
+                        SwitchSpinner(color: shown ? t.accent : t.itemBorder)
+                            .frame(width: 8, height: 8)
+                            .transition(.opacity)
+                    }
+                }
+                .padding(2)
             }
-            .animation(.snappy(duration: 0.15), value: isOn)
-            .barAction(action)
+            .animation(.snappy(duration: 0.15), value: shown)
+            .animation(.easeOut(duration: 0.15), value: pending == nil)
+            .onChange(of: isOn) { _, new in if pending == new { pending = nil } }
+            .barAction {
+                guard pending == nil else { return }
+                let target = !isOn
+                pending = target
+                action()
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(10))
+                    if pending == target { pending = nil }
+                }
+            }
+    }
+}
+
+/// A small spinning arc.
+private struct SwitchSpinner: View {
+    let color: String
+    @State private var turning = false
+
+    var body: some View {
+        Circle()
+            .trim(from: 0.15, to: 0.85)
+            .stroke(Color(hex: color), style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
+            .rotationEffect(.degrees(turning ? 360 : 0))
+            .animation(.linear(duration: 0.8).repeatForever(autoreverses: false), value: turning)
+            .onAppear { turning = true }
     }
 }
 

@@ -3,26 +3,34 @@ import SwiftUI
 import GizmoCore
 
 /// Popovers are child panels anchored to their item: glass, themed, clamped
-/// to the screen, above the bar (below it for a top bar). One is open at a
-/// time; clicking anywhere outside closes it.
+/// to the screen, above the bar (below it for a top bar). One unpinned
+/// popover is open at a time and clicking anywhere outside closes it.
+/// Pinned ones stay open, alongside each other and the unpinned one, until
+/// unpinned or toggled from their item.
 @MainActor
 final class PopoverController {
     static let shared = PopoverController()
 
-    private var panel: NSPanel?
-    private var openID: String?
-    private var onClose: (() -> Void)?
-    private var monitors: [Any] = []
+    private struct Entry {
+        let panel: PopoverPanel
+        let pin: PopoverPin
+        let onClose: () -> Void
+    }
 
-    func isOpen(_ id: String) -> Bool { openID == id }
-    var anyOpen: Bool { openID != nil }
+    private var open: [String: Entry] = [:]
+    private var monitor: Any?
+
+    func isOpen(_ id: String) -> Bool { open[id] != nil }
+    var anyOpen: Bool { !open.isEmpty }
 
     func show(id: String, anchor: NSView, store: BarStore, root: AnyView, onClose: @escaping () -> Void) {
-        close()
+        close(id: id)
+        closeUnpinned()
         guard let anchorWindow = anchor.window, let screen = anchorWindow.screen else {
             onClose()
             return
         }
+        let pin = PopoverPin()
         let t = store.theme
         let shape = RoundedRectangle(cornerRadius: t.cornerRadius + 4, style: .continuous)
         let content = root
@@ -35,10 +43,12 @@ final class PopoverController {
                 .clipShape(shape)
             }
             .overlay(shape.strokeBorder(Color(hex: t.popupBorder).opacity(0.6), lineWidth: 1))
+            .modifier(CornerPin())
             .font(.custom(t.font, size: t.fontSize))
             .foregroundStyle(Color(hex: t.label))
             .environment(store)
             .environment(store.plugins)
+            .environment(pin)
             .fixedSize()
 
         let host = NSHostingController(rootView: content)
@@ -53,37 +63,72 @@ final class PopoverController {
         var x = anchorRect.midX - size.width / 2
         x = min(max(x, bounds.minX), bounds.maxX - size.width)
         let gap: CGFloat = 6
-        let y = store.config.bar.position == .bottom
-            ? anchorWindow.frame.maxY + gap
-            : anchorWindow.frame.minY - gap - size.height
-        p.setFrame(NSRect(x: x, y: y, width: size.width, height: size.height), display: true)
+        let fromBottom = store.config.bar.position == .bottom
+        p.anchor = PopoverPanel.Anchor(
+            midX: anchorRect.midX, minX: bounds.minX, maxX: bounds.maxX,
+            edge: fromBottom ? anchorWindow.frame.maxY + gap : anchorWindow.frame.minY - gap,
+            growsUp: fromBottom)
+        p.setFrame(NSRect(x: x, y: 0, width: size.width, height: size.height), display: true)
         p.orderFrontRegardless()
+        open[id] = Entry(panel: p, pin: pin, onClose: onClose)
 
-        panel = p
-        openID = id
-        self.onClose = onClose
-
-        // Clicks in other apps close it. Clicks on the bar are left to the
-        // items (clicking the same item toggles, another item replaces it).
-        if let global = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { [weak self] _ in
-            MainActor.assumeIsolated { self?.close() }
-        }) { monitors.append(global) }
+        // Clicks in other apps close the unpinned popover. Clicks on the bar
+        // are left to the items (clicking the same item toggles, another
+        // item replaces the unpinned one).
+        if monitor == nil {
+            monitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+                MainActor.assumeIsolated { self?.closeUnpinned() }
+            }
+        }
     }
 
+    /// Closes the popover `id`, or with no id every unpinned one.
     func close(id: String? = nil) {
-        if let id, id != openID { return }
-        monitors.forEach(NSEvent.removeMonitor)
-        monitors.removeAll()
-        panel?.orderOut(nil)
-        panel = nil
-        openID = nil
-        let callback = onClose
-        onClose = nil
-        callback?()
+        guard let id else { return closeUnpinned() }
+        guard let entry = open.removeValue(forKey: id) else { return }
+        entry.panel.orderOut(nil)
+        if open.isEmpty, let m = monitor {
+            NSEvent.removeMonitor(m)
+            monitor = nil
+        }
+        entry.onClose()
+    }
+
+    private func closeUnpinned() {
+        for (id, entry) in open where !entry.pin.pinned { close(id: id) }
     }
 }
 
 final class PopoverPanel: NSPanel {
+    /// Where the panel sits: centered on the item (kept on screen) with its
+    /// bar-side edge fixed, so it grows and shrinks away from the bar when
+    /// its content changes size instead of moving.
+    struct Anchor {
+        var midX, minX, maxX: CGFloat
+        /// The bar-side edge's y in screen coordinates.
+        var edge: CGFloat
+        /// Bottom bar: the panel's bottom stays on `edge` and it grows up.
+        var growsUp: Bool
+    }
+
+    var anchor: Anchor?
+
+    override func setFrame(_ frameRect: NSRect, display flag: Bool) {
+        super.setFrame(anchored(frameRect), display: flag)
+    }
+
+    override func setFrame(_ frameRect: NSRect, display displayFlag: Bool, animate animateFlag: Bool) {
+        super.setFrame(anchored(frameRect), display: displayFlag, animate: animateFlag)
+    }
+
+    private func anchored(_ r: NSRect) -> NSRect {
+        guard let a = anchor else { return r }
+        var r = r
+        r.origin.x = min(max(a.midX - r.width / 2, a.minX), a.maxX - r.width)
+        r.origin.y = a.growsUp ? a.edge : a.edge - r.height
+        return r
+    }
+
     init() {
         super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
@@ -126,6 +171,9 @@ private struct BarPopoverModifier<P: View>: ViewModifier {
     func body(content: Content) -> some View {
         content
             .background(AnchorView(box: anchor))
+            .onChange(of: store.popoverToggle) { _, t in
+                if t.id == id { isPresented.toggle() }
+            }
             .onChange(of: isPresented) { _, shown in
                 if shown, let view = anchor.view {
                     PopoverController.shared.show(id: id, anchor: view, store: store, root: AnyView(popover())) {
@@ -142,5 +190,49 @@ extension View {
     /// Shows `content` in an anchored popover panel while `isPresented`.
     func barPopover<P: View>(id: String, isPresented: Binding<Bool>, @ViewBuilder content: @escaping () -> P) -> some View {
         modifier(BarPopoverModifier(id: id, isPresented: isPresented, popover: content))
+    }
+}
+
+@MainActor @Observable
+final class PopoverPin {
+    var pinned = false
+}
+
+/// Tells the popover container that a header already shows the pin.
+struct HeaderPinKey: PreferenceKey {
+    static let defaultValue = false
+    static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
+}
+
+/// Keeps the open popover up when you click elsewhere.
+struct PinButton: View {
+    @Environment(PopoverPin.self) private var pin
+    @Environment(BarStore.self) private var store
+    @State private var hovering = false
+
+    var body: some View {
+        let t = store.theme
+        Image(systemName: pin.pinned ? "pin.fill" : "pin")
+            .font(.system(size: 10, weight: .medium))
+            .rotationEffect(.degrees(pin.pinned ? 0 : 45))
+            .foregroundStyle(Color(hex: pin.pinned ? t.accent : t.label).opacity(pin.pinned || hovering ? 1 : 0.45))
+            .frame(width: 18, height: 18)
+            .contentShape(Rectangle())
+            .help(pin.pinned ? "Unpin" : "Pin open")
+            .animation(.easeOut(duration: 0.15), value: pin.pinned)
+            .barAction(onHover: { hovering = $0 }) { pin.pinned.toggle() }
+    }
+}
+
+/// A pin in the corner for popovers without a header.
+private struct CornerPin: ViewModifier {
+    @State private var headerHasPin = false
+
+    func body(content: Content) -> some View {
+        content
+            .onPreferenceChange(HeaderPinKey.self) { headerHasPin = $0 }
+            .overlay(alignment: .topTrailing) {
+                if !headerHasPin { PinButton().padding(2) }
+            }
     }
 }

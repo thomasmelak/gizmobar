@@ -14,6 +14,21 @@ public final class BarStore {
     public var icons: IconResolver
     /// Plugin widget trees.
     @ObservationIgnored public let plugins = PluginStore()
+    /// A source picked in the now playing popover (a player or any app
+    /// making sound); nil follows what's playing.
+    public var pickedSource: String?
+    /// Bumped by `gizmo popover <id>`; the item with that id toggles its popover.
+    public var popoverToggle = PopoverToggle(id: "", serial: 0)
+
+    public func togglePopover(_ id: String) {
+        popoverToggle = PopoverToggle(id: id, serial: popoverToggle.serial + 1)
+    }
+
+    /// What the now playing pill shows.
+    public var shownSource: ShownSource? {
+        ShownSource.choose(media: snapshot.nowPlaying, audio: snapshot.audioSources, picked: pickedSource)
+    }
+
     /// Themes the picker offers; refreshed by the app when it opens.
     public var themes: [ThemeEntry] = []
 
@@ -43,6 +58,7 @@ public final class BarStore {
     public func apply(_ event: BarEvent) {
         snapshot.apply(event)
     }
+
 
     /// Feeds bus events into the store until the stream ends.
     public func attach(to bus: EventBus) {
@@ -80,10 +96,20 @@ public enum BarRequest {
     public static let mediaToggle = "media.toggle"
     public static let mediaNext = "media.next"
     public static let mediaPrevious = "media.previous"
+    /// Back a track even when the current one is a few seconds in.
+    public static let mediaPreviousTrack = "media.previous-track"
     public static let mediaShuffle = "media.shuffle"
     public static let mediaRepeat = "media.repeat"
     public static func mediaSeek(_ seconds: Double) -> String { "media.seek:\(seconds)" }
     public static func mediaSelect(_ id: String) -> String { "media.select:\(id)" }
+    public static let spotifyLogin = "spotify.login"
+    public static let spotifyLogout = "spotify.logout"
+    public static func spotifyPlay(_ uri: String) -> String { "spotify.play:\(uri)" }
     public static func setTheme(_ id: String) -> String { "theme.set:\(id)" }
     public static func setWarmth(_ v: Int) -> String { "displays.warmth:\(v)" }
+}
+
+public struct PopoverToggle: Equatable, Sendable {
+    public var id: String
+    public var serial: Int
 }

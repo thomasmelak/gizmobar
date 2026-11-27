@@ -81,19 +81,30 @@ struct SoundPopover: View {
 struct BarSlider: View {
     let value: Double
     var tint: String
+    /// Fill colors left to right; `tint` alone when nil.
+    var gradient: [String]? = nil
+    /// Send only when released (seeking), instead of while dragging (volume).
+    var commitOnRelease = false
     let onChange: @MainActor (Double) -> Void
     @Environment(BarStore.self) private var store
     @State private var dragValue: Double?
+    /// The released value, shown until `value` catches up with it, so the
+    /// knob doesn't jump back while the change is applied.
+    @State private var held: Double?
     @State private var lastSent = Date.distantPast
 
     var body: some View {
         let t = store.theme
-        let shown = dragValue ?? value
+        let shown = dragValue ?? held ?? value
+        let colors = (gradient?.isEmpty == false ? gradient! : [tint]).map { Color(hex: $0) }
         GeometryReader { geo in
             let w = geo.size.width
             ZStack(alignment: .leading) {
                 Capsule().fill(Color(hex: t.itemBorder)).frame(height: 6)
-                Capsule().fill(Color(hex: tint)).frame(width: max(6, w * shown), height: 6)
+                Capsule().fill(LinearGradient(colors: colors.count > 1 ? colors : colors + colors,
+                                              startPoint: .leading, endPoint: .trailing))
+                    .frame(width: w, height: 6)
+                    .mask(alignment: .leading) { Capsule().frame(width: max(6, w * shown), height: 6) }
                 Circle().fill(Color(hex: t.label)).frame(width: 12, height: 12)
                     .offset(x: min(max(0, w * shown - 6), w - 12))
             }
@@ -105,7 +116,7 @@ struct BarSlider: View {
                     .onChanged { g in
                         let v = min(max(g.location.x / w, 0), 1)
                         dragValue = v
-                        if Date().timeIntervalSince(lastSent) > 0.05 {
+                        if !commitOnRelease, Date().timeIntervalSince(lastSent) > 0.05 {
                             lastSent = Date()
                             onChange(v)
                         }
@@ -113,10 +124,23 @@ struct BarSlider: View {
                     .onEnded { g in
                         let v = min(max(g.location.x / w, 0), 1)
                         onChange(v)
+                        hold(v)
                         dragValue = nil
                     }
             )
         }
+        .onChange(of: value) { _, new in
+            if let h = held, abs(new - h) < 0.02 { held = nil }
+        }
         .frame(height: 20)
+    }
+
+    /// Keeps `v` on screen until the source reports it, or 2.5 s at most.
+    private func hold(_ v: Double) {
+        held = v
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2.5))
+            if held == v { held = nil }
+        }
     }
 }

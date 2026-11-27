@@ -63,8 +63,11 @@ public struct BarSnapshot: Sendable, Equatable {
     public var audio: AudioStatus?
     public var displays: DisplaysStatus?
     public var nowPlaying = NowPlayingStatus()
-    /// Live spectrum levels (0...1) while the audio tap runs; empty otherwise.
-    public var spectrum: [Float] = []
+    public var spotify = SpotifyStatus()
+    /// Lyrics of the shown track, when found.
+    public var lyrics: Lyrics?
+    /// Apps making sound now or recently.
+    public var audioSources: [AudioSource] = []
     /// Last payload per external `gizmo trigger` topic.
     public var triggers: [String: JSONValue] = [:]
 
@@ -115,11 +118,14 @@ public struct BarSnapshot: Sendable, Equatable {
         case Topic.media:
             nowPlaying = event.payload.decode(NowPlayingStatus.self) ?? NowPlayingStatus()
 
-        case Topic.spectrum:
-            spectrum = event.payload.array?.compactMap { v -> Float? in
-                if case .number(let n) = v { return Float(n) }
-                return nil
-            } ?? []
+        case Topic.spotify:
+            spotify = event.payload.decode(SpotifyStatus.self) ?? SpotifyStatus()
+
+        case Topic.lyrics:
+            lyrics = event.payload.decode(Lyrics.self)
+
+        case Topic.audioSources:
+            audioSources = event.payload.decode(AudioSourcesStatus.self)?.sources ?? []
 
         case Topic.clockTick:
             if let t = event.payload["epoch"], case .number(let s) = t { now = Date(timeIntervalSince1970: s) }

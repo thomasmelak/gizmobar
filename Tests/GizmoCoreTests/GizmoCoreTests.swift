@@ -6,7 +6,7 @@ import Testing
     @Test func emptyCustomPackDisablesIt() throws {
         let c = try GizmoConfig.parse("[icons]\ncustom_pack = \"\"")
         #expect(c.icons.customPack == nil)
-        #expect(c.icons.packOrder == ["sketchybar-app-font"])
+        #expect(c.icons.packOrder == ["tefer-line", "sketchybar-app-font"])
     }
 
     @Test func emptyConfigUsesDefaults() throws {
@@ -54,7 +54,7 @@ import Testing
         #expect(c.launchAtLogin)
         #expect(c.layout.center == ["front_app"])
         #expect(c.icons.style == .system)
-        #expect(c.icons.packOrder == ["my-icons", "sketchybar-app-font"])
+        #expect(c.icons.packOrder == ["my-icons", "tefer-line", "sketchybar-app-font"])
         #expect(c.icons.fallback == .monogram)
         #expect(c.icons.apps["dev.zed.Zed"]?.file == "~/icons/zed.svg")
         #expect(c.logo == LogoSettings(image: "~/logo.svg", text: "tefer", tint: "accent"))
@@ -486,6 +486,24 @@ struct ConfigEditorTests {
     }
 }
 
+@Suite("Bundled icon packs")
+struct BundledIconPackTests {
+    let dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        .deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("icon-packs")
+
+    @Test func customIconsIsTheDefaultAndConsistent() throws {
+        #expect(IconSettings().customPack == "custom-icons")
+        let pack = try #require(IconPack.loadAll(from: [dir])["custom-icons"])
+        #expect(pack.manifest.kind == .svg)
+        #expect(pack.svgBundleIDs.count == 89)
+        #expect(Set(pack.colors.keys) == pack.svgBundleIDs)
+        #expect(Set(pack.aliases.values).isSubset(of: pack.svgBundleIDs))
+        let r = IconResolver(settings: IconSettings(), packs: IconPack.loadAll(from: [dir]))
+        #expect(r.resolve(bundleID: "com.mitchellh.ghostty", appName: "Ghostty").source == "custom-icons")
+        #expect(r.resolve(bundleID: "com.microsoft.VSCode", appName: "Code").source == "custom-icons")
+    }
+}
+
 @Suite("Themes")
 struct ThemeCatalogTests {
     @Test func bundledThemesParse() throws {
@@ -564,8 +582,71 @@ struct MediaTests {
         let status = NowPlayingStatus(sources: [chrome], selected: chrome.id)
         snap.apply(BarEvent(topic: Topic.media, payload: JSONValue(encoding: status)))
         #expect(snap.nowPlaying.current?.track?.title == "B")
-        snap.apply(BarEvent(topic: Topic.spectrum, payload: .array([.number(0.5), .number(1)])))
-        #expect(snap.spectrum == [0.5, 1])
+        let zoom = AudioSource(id: "us.zoom.xos", name: "zoom.us", isActive: true, lastHeard: Date())
+        snap.apply(BarEvent(topic: Topic.audioSources, payload: JSONValue(encoding: AudioSourcesStatus(sources: [zoom]))))
+        #expect(snap.audioSources == [zoom])
+    }
+
+    @Test func trackHistoryRecordsSkipsAndGoingBack() {
+        var h = TrackHistory(limit: 2)
+        let a = MediaTrack(title: "A"), b = MediaTrack(title: "B"), c = MediaTrack(title: "C")
+        h.push(a); h.push(b); h.push(a); h.push(c)
+        #expect(h.cards.map(\.title) == ["C", "A"])
+        h.returned(to: c)
+        #expect(h.cards.map(\.title) == ["A"])
+        h.setArt(key: a.key, path: "/tmp/a.jpg", color: "#ff0000")
+        #expect(h.cards.first?.artworkPath == "/tmp/a.jpg")
+    }
+
+    @Test func lyricsParseLRCAndFollowPosition() throws {
+        let lrc = "[ar:Someone]\n[00:01.50]First\n[00:04.00][00:20.00]Chorus\n[00:10.25] Second \n"
+        let lines = Lyrics.parseLRC(lrc)
+        #expect(lines.map(\.text) == ["First", "Chorus", "Second", "Chorus"])
+        #expect(lines.map(\.time) == [1.5, 4, 10.25, 20])
+        let l = Lyrics(key: "k", lines: lines)
+        #expect(l.isSynced)
+        #expect(l.index(at: 0) == nil)
+        #expect(l.index(at: 5) == 1)
+        #expect(l.index(at: 30) == 3)
+        #expect(Lyrics(key: "k", lines: Lyrics.parsePlain("a\nb")).index(at: 5) == nil)
+    }
+
+    @Test func spotifyConfigDecodes() throws {
+        let c = try GizmoConfig.parse("[spotify]\nclient_id = \"abc\"\n[lyrics]\nenabled = false\n")
+        #expect(c.spotify.isConfigured && c.spotify.redirectURI == "http://127.0.0.1:43821/callback")
+        #expect(!c.lyrics.enabled)
+        #expect(!(try GizmoConfig.parse("")).spotify.isConfigured)
+    }
+
+    @Test func audioSourcesOrderActiveThenRecent() {
+        let now = Date()
+        let a = AudioSource(id: "a", name: "A", isActive: false, lastHeard: now.addingTimeInterval(-60))
+        let b = AudioSource(id: "b", name: "B", isActive: true, lastHeard: now)
+        let c = AudioSource(id: "c", name: "C", isActive: false, lastHeard: now.addingTimeInterval(-10))
+        let old = AudioSource(id: "d", name: "D", isActive: false, lastHeard: now.addingTimeInterval(-3600))
+        #expect(AudioSourcesStatus.ordered([a, b, c, old], now: now).map(\.id) == ["b", "c", "a"])
+    }
+
+    @Test func shownSourcePrefersPlayingMediaThenOtherSound() {
+        let now = Date()
+        var spotify = MediaSource(id: "com.spotify.client", name: "Spotify", state: .paused, track: MediaTrack(title: "T"))
+        let zoom = AudioSource(id: "us.zoom.xos", name: "zoom.us", isActive: true, lastHeard: now)
+        let spotifySound = AudioSource(id: spotify.id, name: "Spotify", isActive: true, lastHeard: now)
+        var media = NowPlayingStatus(sources: [spotify], selected: spotify.id)
+        // Paused player, a call making sound: the call.
+        #expect(ShownSource.choose(media: media, audio: [spotifySound, zoom], picked: nil) == .audio(zoom))
+        // Playing player wins.
+        spotify.state = .playing
+        media = NowPlayingStatus(sources: [spotify], selected: spotify.id)
+        #expect(ShownSource.choose(media: media, audio: [zoom], picked: nil) == .media(spotify))
+        // A pick wins; a player is never listed as an audio-only source.
+        #expect(ShownSource.choose(media: media, audio: [zoom], picked: zoom.id) == .audio(zoom))
+        #expect(ShownSource.choose(media: media, audio: [spotifySound], picked: spotify.id) == .media(spotify))
+        // Nothing playing: the paused player, else nothing.
+        spotify.state = .paused
+        media = NowPlayingStatus(sources: [spotify], selected: spotify.id)
+        #expect(ShownSource.choose(media: media, audio: [], picked: nil) == .media(spotify))
+        #expect(ShownSource.choose(media: NowPlayingStatus(), audio: [], picked: nil) == nil)
     }
 
     @Test func artColorPicksSaturatedMajority() throws {
@@ -580,21 +661,22 @@ struct MediaTests {
         #expect(ArtColor.hex(RGBA(r: 1, g: 0, b: 0.5)) == "#ff0080")
     }
 
-    @Test func spectrumBands() {
-        // A loud bin near 1 kHz at 48 kHz / 1024-point FFT (46.875 Hz bins).
-        var power = [Float](repeating: 0, count: 512)
-        power[21] = Float(512 * 512)
-        let b = Spectrum.bands(power: power, sampleRate: 48_000, count: 12)
-        #expect(b.count == 12)
-        #expect(b.max() == 1)
-        #expect(b.first == 0)
-        let s = Spectrum.smooth([0, 1], [1, 0])
-        #expect(s[0] > 0.5 && s[1] > 0.8)
+    @Test func artPaletteKeepsDistinctHues() {
+        // 3 red, 2 near-red, 2 blue, 1 green: red, blue, green; near-red folds away.
+        let red: [UInt8] = [220, 30, 40, 255], nearRed: [UInt8] = [230, 50, 30, 255]
+        let blue: [UInt8] = [30, 60, 220, 255], green: [UInt8] = [40, 200, 60, 255]
+        let px = red + red + red + nearRed + nearRed + blue + blue + green
+        let p = ArtColor.palette(rgba: px, count: 3)
+        #expect(p.count == 3)
+        #expect(p[0].r > 0.7 && p[1].b > 0.7 && p[2].g > 0.7)
     }
 
     @Test func mediaSettings() throws {
         let c = try GizmoConfig.parse("[media]\nspectrum = false\nbands = 200")
         #expect(c.media.spectrum == false)
+        #expect(c.media.visualizer == .ridgeline)
+        #expect(try GizmoConfig.parse("[media]\nvisualizer = \"Bars\"").media.visualizer == .bars)
+        #expect(try GizmoConfig.parse("[media]\nvisualizer = \"nope\"").media.visualizer == .ridgeline)
         #expect(c.media.bands == 64)
         #expect(try GizmoConfig.parse("").layout.right.first == "now_playing")
     }
@@ -684,6 +766,11 @@ struct AutoHideTests {
         #expect(AutoHideRules.isFullscreen(windows: [CGRect(x: 0, y: 0, width: 1512, height: 982)], display: screen))
         #expect(!AutoHideRules.isFullscreen(windows: [CGRect(x: 0, y: 38, width: 1512, height: 944)], display: screen))
         #expect(!AutoHideRules.isFullscreen(windows: [], display: screen))
+        // Notched display: fullscreen windows start below the notch.
+        #expect(AutoHideRules.isFullscreen(windows: [CGRect(x: 0, y: 38, width: 1512, height: 944)], display: screen, topInset: 38))
+        #expect(AutoHideRules.isFullscreen(windows: [CGRect(x: 0, y: 39, width: 1512, height: 943)], display: screen, topInset: 38))
+        #expect(!AutoHideRules.isFullscreen(windows: [CGRect(x: 10, y: 38, width: 1492, height: 934)], display: screen, topInset: 38))
+        #expect(!AutoHideRules.isFullscreen(windows: [CGRect(x: 0, y: 60, width: 1512, height: 922)], display: screen, topInset: 38))
     }
 
     @Test func zones() {
@@ -699,5 +786,57 @@ struct AutoHideTests {
     @Test func configDefault() throws {
         #expect(try GizmoConfig.parse("").bar.autohide == .fullscreen)
         #expect(try GizmoConfig.parse("[bar]\nautohide = \"never\"").bar.autohide == .never)
+    }
+}
+
+@Suite struct AudioFrameHubTests {
+    @Test func readsLatestSamplesOldestFirst() {
+        let hub = AudioFrameHub()
+        hub.write(source: "a", samples: (0..<10).map(Float.init), sampleRate: 48_000)
+        var out = [Float](repeating: -1, count: 4)
+        let w = hub.read(source: "a", into: &out)
+        #expect(out == [6, 7, 8, 9])
+        #expect(w?.written == 10)
+        #expect(w?.sampleRate == 48_000)
+        #expect(hub.read(source: "b", into: &out) == nil)
+    }
+
+    @Test func wrapsAroundTheRing() {
+        let hub = AudioFrameHub()
+        let cap = AudioFrameHub.capacity
+        hub.write(source: "a", samples: [Float](repeating: 1, count: cap - 2), sampleRate: 44_100)
+        hub.write(source: "a", samples: [2, 3, 4, 5], sampleRate: 44_100)
+        var out = [Float](repeating: 0, count: 5)
+        let w = hub.read(source: "a", into: &out)
+        #expect(out == [1, 2, 3, 4, 5])
+        #expect(w?.written == UInt64(cap + 2))
+    }
+
+    @Test func oversizedChunkKeepsNewest() {
+        let hub = AudioFrameHub()
+        let cap = AudioFrameHub.capacity
+        hub.write(source: "a", samples: (0..<(cap + 3)).map(Float.init), sampleRate: 48_000)
+        var out = [Float](repeating: 0, count: 2)
+        hub.read(source: "a", into: &out)
+        #expect(out == [Float(cap + 1), Float(cap + 2)])
+    }
+
+    @Test func tracksLevelsAndRecentSources() {
+        let hub = AudioFrameHub()
+        let t0 = Date(timeIntervalSince1970: 1_000)
+        hub.write(source: "loud", samples: [0.5, -0.5], sampleRate: 48_000, at: t0)
+        hub.write(source: "quiet", samples: [0, 0], sampleRate: 48_000, at: t0.addingTimeInterval(1))
+        let loud = hub.source("loud")
+        #expect(loud?.level == 0.5)
+        #expect(loud?.peak == 0.5)
+        #expect(loud?.lastHeard == t0)
+        #expect(hub.source("quiet")?.lastHeard == .distantPast)
+        #expect(loud?.isActive(at: t0.addingTimeInterval(0.2)) == true)
+        #expect(loud?.isActive(at: t0.addingTimeInterval(2)) == false)
+        // Most recently heard first; quiet sources stay listed.
+        #expect(hub.sources(within: 300, at: t0.addingTimeInterval(2)).map(\.id) == ["loud", "quiet"])
+        #expect(hub.sources(within: 300, at: t0.addingTimeInterval(400)).isEmpty)
+        hub.remove(source: "loud")
+        #expect(hub.source("loud") == nil)
     }
 }

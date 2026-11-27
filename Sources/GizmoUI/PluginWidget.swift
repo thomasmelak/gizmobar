@@ -135,7 +135,7 @@ private struct PluginPill: View {
     @Environment(PluginStore.self) private var plugins
     @State private var showing = false
     @State private var hovering = false
-    @State private var popoverTree: PluginNode?
+    @State private var live = LivePopover()
 
     var body: some View {
         Pill(focused: focused || showing, hovered: hovering && (onClick != nil || popover != nil)) {
@@ -143,9 +143,13 @@ private struct PluginPill: View {
         }
         .barAction(onHover: { hovering = $0 }, action)
         .barPopover(id: "plugin.\(plugin)", isPresented: $showing) {
-            if let popoverTree {
-                PluginNodeView(plugin: plugin, node: popoverTree, inPopover: true).frame(minWidth: 220, alignment: .leading)
-            }
+            LivePopoverTree(plugin: plugin, live: live)
+        }
+        // Re-ask for the popover whenever the plugin renders, so an open
+        // (or pinned) popover keeps up.
+        .onChange(of: plugins.trees[plugin]) {
+            guard showing, let popover else { return }
+            Task { live.tree = await plugins.popover?(plugin, popover) }
         }
     }
 
@@ -156,7 +160,7 @@ private struct PluginPill: View {
             if let popover {
                 if showing { showing = false; return }
                 Task {
-                    popoverTree = await plugins.popover?(plugin, popover)
+                    live.tree = await plugins.popover?(plugin, popover)
                     showing = true
                 }
             }
@@ -175,7 +179,7 @@ struct SceneSlot: View {
     @Environment(BarStore.self) private var store
     @Environment(PluginStore.self) private var plugins
     @State private var showing = false
-    @State private var popoverTree: PluginNode?
+    @State private var live = LivePopover()
 
     var body: some View {
         let o = SceneOptions.parse(options)
@@ -185,17 +189,17 @@ struct SceneSlot: View {
             .overlay(PointerArea(pointer: onClick != nil || popover != nil || o.popoverSize != nil, onHover: nil))
             .help(inPopover ? "" : (o.caption ?? ""))
             .barPopover(id: "scene.\(plugin)", isPresented: $showing) {
-                if let popoverTree {
-                    PluginNodeView(plugin: plugin, node: popoverTree, inPopover: true).frame(minWidth: 220, alignment: .leading)
-                } else if let s = o.popoverSize {
-                    VStack(spacing: 8) {
-                        content(o, size: s, orbit: o.orbit).frame(width: s, height: s)
-                        if let c = o.caption {
-                            Text(c).font(.custom(store.theme.font, size: store.theme.fontSize))
-                                .foregroundStyle(Color(hex: store.theme.label))
-                        }
-                    }
+                LiveScenePopover(plugin: plugin, live: live) { o, s in
+                    content(o, size: s, orbit: o.orbit)
                 }
+            }
+            // The popover follows the plugin's latest render (caption, model
+            // state, popover tree) while it's open, pinned or not.
+            .onAppear { live.options = options }
+            .onChange(of: options) { live.options = options }
+            .onChange(of: plugins.trees[plugin]) {
+                guard showing, !inPopover, let popover, live.tree != nil else { return }
+                Task { live.tree = await plugins.popover?(plugin, popover) }
             }
     }
 
@@ -222,12 +226,53 @@ struct SceneSlot: View {
         if showing { showing = false; return }
         if let popover {
             Task {
-                popoverTree = await plugins.popover?(plugin, popover)
+                live.tree = await plugins.popover?(plugin, popover)
                 showing = true
             }
         } else if o.popoverSize != nil {
-            popoverTree = nil
+            live.tree = nil
             showing = true
+        }
+    }
+}
+
+/// What an open plugin popover shows, kept current by the item on the bar.
+/// The popover's panel holds onto this box, so updates reach it.
+@MainActor @Observable
+final class LivePopover {
+    var tree: PluginNode?
+    var options: JSONValue = .null
+}
+
+private struct LivePopoverTree: View {
+    let plugin: String
+    let live: LivePopover
+
+    var body: some View {
+        if let tree = live.tree {
+            PluginNodeView(plugin: plugin, node: tree, inPopover: true).frame(minWidth: 220, alignment: .leading)
+        }
+    }
+}
+
+private struct LiveScenePopover<Scene: View>: View {
+    let plugin: String
+    let live: LivePopover
+    @ViewBuilder let scene: (SceneOptions, CGFloat) -> Scene
+    @Environment(BarStore.self) private var store
+
+    var body: some View {
+        let o = SceneOptions.parse(live.options)
+        if live.tree != nil {
+            LivePopoverTree(plugin: plugin, live: live)
+        } else if let s = o.popoverSize {
+            VStack(spacing: 8) {
+                scene(o, s).frame(width: s, height: s)
+                if let c = o.caption {
+                    Text(c).font(.custom(store.theme.font, size: store.theme.fontSize))
+                        .foregroundStyle(Color(hex: store.theme.label))
+                }
+            }
         }
     }
 }

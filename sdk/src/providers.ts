@@ -55,6 +55,7 @@ export interface Providers {
     album: string | null;
     artwork: string | null /* file path */;
     color: Color | null /* picked from the art */;
+    gradient: Color[] | null /* a few distinct colors from the art */;
     position: number;
     duration: number;
     source: string | null /* bundle ID */;

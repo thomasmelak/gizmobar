@@ -39,8 +39,17 @@ let package = Package(
             dependencies: ["GizmoCore"],
             linkerSettings: [.linkedFramework("JavaScriptCore")]
         ),
-        // 3D scene engine contract (Phase 5: RealityKit, Metal fallback).
-        .target(name: "GizmoScene", dependencies: ["GizmoCore"], linkerSettings: [.linkedFramework("RealityKit")]),
+        // 3D scene engine (RealityKit models) and the Metal audio visualizer.
+        .target(
+            name: "GizmoScene",
+            dependencies: ["GizmoCore"],
+            linkerSettings: [
+                .linkedFramework("RealityKit"),
+                .linkedFramework("Metal"),
+                .linkedFramework("MetalKit"),
+                .linkedFramework("Accelerate"),
+            ]
+        ),
         // Panels, SwiftUI widgets, icon rendering.
         .target(name: "GizmoUI", dependencies: ["GizmoCore", "GizmoProviders", "GizmoScene"]),
         .executableTarget(

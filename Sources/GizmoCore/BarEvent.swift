@@ -44,6 +44,8 @@ public enum Topic {
     public static let displays = "displays.status"
     public static let displaysChanged = "displays.changed"
     public static let media = "media.now-playing"
-    public static let spectrum = "media.spectrum"
+    public static let audioSources = "audio.sources"
+    public static let spotify = "spotify.status"
+    public static let lyrics = "media.lyrics"
     public static let configReloaded = "gizmobar.config-reloaded"
 }

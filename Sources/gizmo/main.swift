@@ -52,6 +52,7 @@ gizmo: control Gizmobar
 USAGE
   gizmo ping                      check that the bar is running
   gizmo trigger <topic> [k=v ...] push an event onto the bar's bus
+  gizmo popover <id>              open or close an item's popover (now_playing, clock, ...)
   gizmo reload                    reload config, theme and icon packs
   gizmo state                     print what the bar currently shows
   gizmo icons missing             apps the icon packs don't cover, most used first
@@ -129,6 +130,10 @@ case "icons" where args.first == "init":
     Drop <bundle-id>.svg files (fill="currentColor") into icons/; the bar picks them up live.
     Use it with:  [icons] custom_pack = "\(args[1])"
     """)
+case "popover":
+    guard args.count == 1 else { fail("usage: gizmo popover <id>   (now_playing, network, battery, clock, plugin.<id>, ...)") }
+    let r = send(.init(command: "popover", args: args))
+    if !r.ok { fail(r.message ?? "failed") }
 case "reload", "state", "icons":
     let r = send(.init(command: command, args: args))
     if !r.ok { fail(r.message ?? "failed") }

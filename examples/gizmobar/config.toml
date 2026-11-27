@@ -56,24 +56,35 @@ move_workspace_to_monitor = false
 
 [icons]
 style = "custom"                  # or "system": real macOS icons everywhere
-custom_pack = "tefer-line"        # any folder in ~/.config/gizmobar/icon-packs/
+custom_pack = "custom-icons"      # any folder in ~/.config/gizmobar/icon-packs/
                                   # (or bundled); tried first, reloads live
-packs = ["sketchybar-app-font"]   # tried in order after the custom pack
+packs = ["tefer-line", "sketchybar-app-font"]  # tried in order after the custom pack
 fallback = "system"                             # system | monogram | generic
 tint = "brand"                                  # brand | theme | none
 system_look = "mono"                            # mono | color, for fallback icons
 debug_fallbacks = false
 
 [icons.apps]
-"com.spotify.client" = { style = "system" }
+# "com.spotify.client" = { style = "system" }   # real macOS icon for one app
 # "dev.zed.Zed" = { file = "~/icons/zed.svg" }
 # "com.tinyspeck.slackmacgap" = { glyph = "slack", color = "#e01e5a" }
 
 [media]
 # adapter = "~/.local/share/mediaremote-adapter"   # any app's media (browsers...), see README
-spectrum = true        # live bars from a Core Audio tap; false = animated bars
+spectrum = true        # live audio from Core Audio taps; false = animated
 bands = 24
-width = 156
+visualizer = "ridgeline"  # ridgeline | bars | off
+# audio_sources = ["com.example.app"]  # more sound sources besides players, calls and browsers
+width = 120
+
+[lyrics]
+enabled = true         # from lrclib.net (sends title, artist, album and length)
+
+# [spotify]
+# client_id = "..."    # an app at developer.spotify.com with redirect URI
+#                      # http://127.0.0.1:43821/callback; adds the up-next queue
+#                      # and your playlists to the Now Playing popover
+# port = 43821
 
 # [plugins.uptime-globe]
 # every = 60

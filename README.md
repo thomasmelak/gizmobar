@@ -82,6 +82,8 @@ Local builds only: sign with a stable identity so privacy grants survive rebuild
 (release builds are signed in CI; users never sign anything):
 
 ```sh
+scripts/make-local-signing-cert.sh   # once: a self-signed identity make app uses
+# or pick one yourself:
 SIGN_IDENTITY="Apple Development: Your Name (TEAMID)" make app
 ```
 
@@ -90,6 +92,7 @@ SIGN_IDENTITY="Apple Development: Your Name (TEAMID)" make app
 ```sh
 gizmo ping
 gizmo trigger vpn.status up=true    # push your own events onto the bus
+gizmo popover now_playing           # open or close a popover, e.g. from a hotkey
 gizmo reload                        # re-read config, theme and icon packs
 gizmo state
 gizmo icons missing                 # apps the icon packs don't cover, most used first
@@ -139,9 +142,33 @@ adapter = "~/.local/share/mediaremote-adapter"   # holds mediaremote-adapter.pl 
 ```
 
 Without it the bar falls back to `nowplaying-cli` when that's installed.
-The spectrum comes from a Core Audio tap (macOS 14.2+, asks for audio
-capture once); deny it or set `spectrum = false` and the bars animate on
-their own.
+The visualizer listens to each app on its own through Core Audio taps
+(macOS 14.2+, asks for audio capture once) and analyzes the sound the way
+[cava](https://github.com/karlstav/cava) does. It draws 3D ridges in the
+album's colors by default; `visualizer = "bars"` gives flat bars and
+`"off"` hides it. Deny audio capture or set `spectrum = false` and it
+animates on its own.
+Apps that aren't players (calls, videos) show in the pill by name, and the
+popover lists media apps, call apps and browsers playing now or heard in
+the last 10 minutes (`[media] audio_sources = ["bundle.id"]` adds more).
+
+Lyrics come from [LRCLIB](https://lrclib.net), synced when it has timings
+(`[lyrics] enabled = false` to turn them off).
+
+### Spotify
+
+Signing in adds the up-next queue beside the album art and your playlists
+to the popover. Create an app at
+[developer.spotify.com](https://developer.spotify.com/dashboard) with the
+redirect URI `http://127.0.0.1:43821/callback`, then set its client ID:
+
+```toml
+[spotify]
+client_id = "your client id"
+```
+
+Open the Now Playing popover on a Spotify track and choose **Sign in to
+Spotify**. The refresh token is kept in the login Keychain.
 
 ## Configuration
 
@@ -159,9 +186,9 @@ App icons resolve per bundle ID: per-app override, then `style = "system"`
 for real macOS icons everywhere, otherwise your custom pack, then the other
 packs in order, then the fallback you pick.
 
-The custom pack is whichever pack `custom_pack` names (Tefer Line by
-default). Start your own with `gizmo icons init my-icons`, drop
-`<bundle-id>.svg` files into it, and the bar picks them up live, no reload.
+The custom pack is whichever pack `custom_pack` names (Custom Icons by
+default, then Tefer Line). Start your own with `gizmo icons init my-icons`,
+drop `<bundle-id>.svg` files into it, and the bar picks them up live, no reload.
 
 ## Layout
 

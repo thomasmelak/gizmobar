@@ -1,5 +1,16 @@
 import Foundation
 
+/// How the now playing visualizer draws.
+public enum VisualizerStyle: String, Sendable, Codable, CaseIterable {
+    /// The spectrum leaves a trail of ridges sliding back into depth,
+    /// mirrored with the bass in the middle.
+    case ridgeline
+    /// Classic cava bars, flat.
+    case bars
+    /// No visualizer.
+    case off
+}
+
 /// `[media]` in config.toml.
 public struct MediaSettings: Sendable, Equatable, Decodable {
     /// Folder holding `mediaremote-adapter.pl` and `MediaRemoteAdapter.framework`
@@ -14,15 +25,28 @@ public struct MediaSettings: Sendable, Equatable, Decodable {
     public var bands: Int
     /// Width of the track text on the bar, in points.
     public var width: Double
+    /// More apps (bundle IDs) to list as sound sources, on top of media
+    /// players, call apps and browsers. Apps that only play alerts are left
+    /// out unless listed here.
+    public var audioSources: [String]
+    /// How the visualizer draws: `ridgeline` (3D ridges, the default),
+    /// `bars` (flat cava bars) or `off`.
+    public var visualizer: VisualizerStyle
 
-    public init(adapter: String? = nil, spectrum: Bool = true, bands: Int = 24, width: Double = 156) {
+    public init(adapter: String? = nil, spectrum: Bool = true, bands: Int = 24, width: Double = 120,
+                visualizer: VisualizerStyle = .ridgeline, audioSources: [String] = []) {
+        self.audioSources = audioSources
         self.adapter = adapter
         self.spectrum = spectrum
         self.bands = bands
         self.width = width
+        self.visualizer = visualizer
     }
 
-    enum CodingKeys: String, CodingKey { case adapter, spectrum, bands, width }
+    enum CodingKeys: String, CodingKey {
+        case adapter, spectrum, bands, width, visualizer
+        case audioSources = "audio_sources"
+    }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -31,6 +55,9 @@ public struct MediaSettings: Sendable, Equatable, Decodable {
         spectrum = try c.decodeIfPresent(Bool.self, forKey: .spectrum) ?? d.spectrum
         bands = min(max(try c.decodeIfPresent(Int.self, forKey: .bands) ?? d.bands, 4), 64)
         width = try c.decodeIfPresent(Double.self, forKey: .width) ?? d.width
+        audioSources = try c.decodeIfPresent([String].self, forKey: .audioSources) ?? d.audioSources
+        let style = try c.decodeIfPresent(String.self, forKey: .visualizer)
+        visualizer = style.flatMap { VisualizerStyle(rawValue: $0.lowercased()) } ?? d.visualizer
     }
 }
 
@@ -46,9 +73,11 @@ public struct MediaTrack: Sendable, Equatable, Codable {
     /// Cached artwork file and the color picked from it.
     public var artworkPath: String?
     public var artColor: String?
+    /// A few distinct colors from the art, most common first, for gradients.
+    public var artGradient: [String]?
 
     public init(title: String, artist: String = "", album: String = "", duration: Double? = nil,
-                elapsed: Double? = nil, elapsedAt: Date? = nil, artworkPath: String? = nil, artColor: String? = nil) {
+                elapsed: Double? = nil, elapsedAt: Date? = nil, artworkPath: String? = nil, artColor: String? = nil, artGradient: [String]? = nil) {
         self.title = title
         self.artist = artist
         self.album = album
@@ -57,6 +86,7 @@ public struct MediaTrack: Sendable, Equatable, Codable {
         self.elapsedAt = elapsedAt
         self.artworkPath = artworkPath
         self.artColor = artColor
+        self.artGradient = artGradient
     }
 
     /// Identifies the track for crossfades and art caching.
@@ -64,6 +94,33 @@ public struct MediaTrack: Sendable, Equatable, Codable {
 
     /// "Title · Artist", or the title alone.
     public var line: String { artist.isEmpty ? title : "\(title) · \(artist)" }
+}
+
+/// A track beside the current one: one played before it, or one queued.
+public struct TrackCard: Sendable, Equatable, Codable, Identifiable {
+    public var title: String
+    public var artist: String
+    public var artworkPath: String?
+    public var artColor: String?
+    /// The player's ID for it, when known (a Spotify URI).
+    public var uri: String?
+    /// `MediaTrack.key` of the track it came from, to find its cached art.
+    public var key: String?
+
+    public init(title: String, artist: String = "", artworkPath: String? = nil, artColor: String? = nil, uri: String? = nil) {
+        self.title = title
+        self.artist = artist
+        self.artworkPath = artworkPath
+        self.artColor = artColor
+        self.uri = uri
+    }
+
+    public init(_ t: MediaTrack) {
+        self.init(title: t.title, artist: t.artist, artworkPath: t.artworkPath, artColor: t.artColor)
+        key = t.key
+    }
+
+    public var id: String { uri ?? "\(title)\u{1F}\(artist)" }
 }
 
 public struct MediaSource: Sendable, Equatable, Codable, Identifiable {
@@ -77,6 +134,10 @@ public struct MediaSource: Sendable, Equatable, Codable, Identifiable {
     public var track: MediaTrack?
     public var shuffle: Bool?
     public var repeatMode: Repeat?
+    /// Tracks played before this one here, most recent first.
+    public var previous: [TrackCard]?
+    /// What plays next, when the player says (Spotify, signed in).
+    public var upNext: [TrackCard]?
 
     public init(id: String, name: String, state: State, track: MediaTrack? = nil, shuffle: Bool? = nil, repeatMode: Repeat? = nil) {
         self.id = id
@@ -95,6 +156,35 @@ public struct MediaSource: Sendable, Equatable, Codable, Identifiable {
         guard isPlaying, let at = t.elapsedAt else { return e }
         let p = e + date.timeIntervalSince(at)
         return t.duration.map { min(p, $0) } ?? p
+    }
+}
+
+/// Tracks heard per source, most recent first, without repeats.
+public struct TrackHistory: Sendable, Equatable {
+    public private(set) var cards: [TrackCard] = []
+    public let limit: Int
+
+    public init(limit: Int = 5) { self.limit = limit }
+
+    /// Records `track` as played (call when it's replaced by another).
+    public mutating func push(_ track: MediaTrack) {
+        let card = TrackCard(track)
+        cards.removeAll { $0.id == card.id }
+        cards.insert(card, at: 0)
+        if cards.count > limit { cards.removeLast(cards.count - limit) }
+    }
+
+    /// Adds art fetched after the track was recorded.
+    public mutating func setArt(key: String, path: String, color: String?) {
+        for i in cards.indices where cards[i].key == key && cards[i].artworkPath == nil {
+            cards[i].artworkPath = path
+            cards[i].artColor = color
+        }
+    }
+
+    /// Drops the newest card when the player went back to it.
+    public mutating func returned(to track: MediaTrack) {
+        if cards.first?.id == TrackCard(track).id { cards.removeFirst() }
     }
 }
 
@@ -126,6 +216,12 @@ public struct NowPlayingStatus: Sendable, Equatable, Codable {
 public enum ArtColor {
     /// `pixels` is RGBA, 8 bits per channel, row after row.
     public static func dominant(rgba pixels: [UInt8]) -> RGBA? {
+        palette(rgba: pixels, count: 1).first
+    }
+
+    /// Up to `count` colors from the art, most common first, each at least
+    /// `minHueGap` (0...1 around the wheel) from the ones before it.
+    public static func palette(rgba pixels: [UInt8], count: Int, minHueGap: Double = 0.06) -> [RGBA] {
         var buckets: [Int: (count: Double, r: Double, g: Double, b: Double)] = [:]
         var i = 0
         while i + 3 < pixels.count {
@@ -142,8 +238,18 @@ public enum ArtColor {
             e.count += weight; e.r += r * weight; e.g += g * weight; e.b += b * weight
             buckets[key] = e
         }
-        guard let best = buckets.values.max(by: { $0.count < $1.count }) else { return nil }
-        return RGBA(r: best.r / best.count, g: best.g / best.count, b: best.b / best.count)
+        var picked: [(RGBA, Double)] = []
+        for e in buckets.values.sorted(by: { $0.count > $1.count }) {
+            guard picked.count < count else { break }
+            let c = RGBA(r: e.r / e.count, g: e.g / e.count, b: e.b / e.count)
+            let h = HSL(r: c.r, g: c.g, b: c.b).h
+            let far = picked.allSatisfy { _, ph in
+                let d = abs(ph - h)
+                return min(d, 1 - d) >= minHueGap
+            }
+            if far { picked.append((c, h)) }
+        }
+        return picked.map(\.0)
     }
 
     /// Raises lightness to at least `minLightness` and keeps the hue.
@@ -191,36 +297,5 @@ struct HSL {
             return p
         }
         return RGBA(r: f(h + 1 / 3), g: f(h), b: f(h - 1 / 3))
-    }
-}
-
-/// Turns FFT power into bar heights.
-public enum Spectrum {
-    /// Groups `power` (|X|² for bins 0..<n, n = fftSize/2) into `count`
-    /// log-spaced bands between `low` and `high` Hz, as 0...1 on a dB scale
-    /// from `floor` to `ceiling`.
-    public static func bands(power: [Float], sampleRate: Double, count: Int,
-                             low: Double = 40, high: Double = 16_000,
-                             floor: Float = -70, ceiling: Float = -10) -> [Float] {
-        guard power.count > 1, count > 0 else { return [] }
-        let binHz = sampleRate / Double(power.count * 2)
-        let ratio = pow(high / low, 1 / Double(count))
-        var out = [Float](repeating: 0, count: count)
-        let norm = Float(power.count * power.count)
-        for i in 0..<count {
-            let f0 = low * pow(ratio, Double(i)), f1 = f0 * ratio
-            let b0 = max(1, Int(f0 / binHz)), b1 = min(power.count - 1, max(b0, Int(f1 / binHz)))
-            var peak: Float = 0
-            if b0 <= b1 { for b in b0...b1 { peak = max(peak, power[b]) } }
-            let db = 10 * log10(max(peak / norm, 1e-12))
-            out[i] = min(max((db - floor) / (ceiling - floor), 0), 1)
-        }
-        return out
-    }
-
-    /// Fast rise, slow fall, so bars read as motion and not flicker.
-    public static func smooth(_ previous: [Float], _ next: [Float], attack: Float = 0.6, decay: Float = 0.15) -> [Float] {
-        guard previous.count == next.count else { return next }
-        return zip(previous, next).map { p, n in n > p ? p + (n - p) * attack : p + (n - p) * decay }
     }
 }
