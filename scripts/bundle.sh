@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Builds Gizmobar.app from the SwiftPM products.
 #
-# Sign with a stable Apple Development identity so privacy grants (audio
-# capture, accessibility) survive rebuilds:
-#   SIGN_IDENTITY="Apple Development: Your Name (TEAMID)" make app
-# Without it the app is ad-hoc signed and macOS asks again after each build.
+# Sign with a stable identity so privacy grants (audio capture, Bluetooth,
+# automation) survive rebuilds. SIGN_IDENTITY picks one; otherwise the
+# "Gizmobar Local Signing" certificate from scripts/make-local-signing-cert.sh
+# is used when it's in your keychain. Without either the app is ad-hoc
+# signed and macOS asks again after each build.
 #
 # Release builds (see .github/workflows/release.yml):
 #   UNIVERSAL=1   build for arm64 and x86_64
@@ -44,6 +45,14 @@ if [[ -n "${BUILD_NUMBER:-}" ]]; then
   /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$PLIST"
 fi
 
+if [[ -z "${SIGN_IDENTITY:-}" ]]; then
+  # By SHA-1, which works for untrusted (self-signed) certificates too.
+  SIGN_IDENTITY="$(security find-identity -p codesigning 2>/dev/null \
+    | awk '/"Gizmobar Local Signing"/ {print $2; exit}')"
+  if [[ -z "$SIGN_IDENTITY" ]]; then
+    echo "note: ad-hoc signing; run scripts/make-local-signing-cert.sh to keep privacy grants across builds"
+  fi
+fi
 codesign --force --options runtime --sign "${SIGN_IDENTITY:--}" "$OUT/Contents/MacOS/gizmo"
 codesign --force --options runtime --entitlements Resources/Gizmobar.entitlements --sign "${SIGN_IDENTITY:--}" "$OUT"
 echo "built $OUT"

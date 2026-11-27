@@ -82,6 +82,8 @@ Local builds only: sign with a stable identity so privacy grants survive rebuild
 (release builds are signed in CI; users never sign anything):
 
 ```sh
+scripts/make-local-signing-cert.sh   # once: a self-signed identity make app uses
+# or pick one yourself:
 SIGN_IDENTITY="Apple Development: Your Name (TEAMID)" make app
 ```
 
