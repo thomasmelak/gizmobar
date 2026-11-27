@@ -153,6 +153,7 @@ enum WidgetRegistry {
         case "volume": VolumeWidget()
         case "theme": ThemeWidget()
         case "now_playing": NowPlayingWidget()
+        case "globe": GlobeWidget()
         default: PluginOrMissing(id: id)
         }
     }

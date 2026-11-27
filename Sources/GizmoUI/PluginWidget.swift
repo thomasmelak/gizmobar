@@ -8,7 +8,13 @@ import GizmoCore
 @Observable
 public final class PluginStore {
     public var trees: [String: PluginNode] = [:]
+    /// Each plugin's folder, for model paths.
+    public var directories: [String: URL] = [:]
+    /// The latest `ctx.scene.play/set` per plugin.
+    public var sceneCommands: [String: SceneCommand] = [:]
     @ObservationIgnored public var invoke: ((String, Int, JSONValue) -> Void)?
+    /// Delivers a topic to a plugin's `ctx.on` handlers.
+    @ObservationIgnored public var dispatch: ((String, String, JSONValue) -> Void)?
     @ObservationIgnored public var popover: ((String, Int) async -> PluginNode)?
 
     public init() {}
@@ -97,8 +103,8 @@ struct PluginNodeView: View {
             BarSwitch(isOn: on) { if let onChange { plugins.invoke?(plugin, onChange, .bool(!on)) } }
         case .button(let label, let icon, let onClick):
             PopupRow(icon: icon ?? "circle", text: label, action: callback(onClick))
-        case .scene(let options, _, _):
-            SceneSlot(options: options)
+        case .scene(let options, let onClick, let popover):
+            SceneSlot(plugin: plugin, options: options, onClick: onClick, popover: popover, inPopover: inPopover)
         case .spacer:
             Spacer(minLength: 0)
         case .error(let msg):
@@ -157,10 +163,70 @@ private struct PluginPill: View {
     }
 }
 
-/// Where a 3D scene draws (Phase 5 fills it in).
+/// A plugin's `ui.scene`/`ui.globe`: the dot globe, or a model from the
+/// plugin folder. Clicks reach `onClick` and `ctx.on("scene.click")`.
 struct SceneSlot: View {
+    let plugin: String
     let options: JSONValue
+    let onClick: Int?
+    let popover: Int?
+    let inPopover: Bool
+    @Environment(BarStore.self) private var store
+    @Environment(PluginStore.self) private var plugins
+    @State private var showing = false
+    @State private var popoverTree: PluginNode?
+
     var body: some View {
-        Image(systemName: "cube.transparent").font(.system(size: 14, weight: .light))
+        let o = SceneOptions.parse(options)
+        let size = inPopover ? (o.popoverSize ?? max(o.size, 200)) : min(o.size, store.config.bar.height - 6)
+        content(o, size: size, orbit: inPopover || showing)
+            .frame(width: size, height: size)
+            .overlay(PointerArea(pointer: onClick != nil || popover != nil || o.popoverSize != nil, onHover: nil))
+            .help(inPopover ? "" : (o.caption ?? ""))
+            .barPopover(id: "scene.\(plugin)", isPresented: $showing) {
+                if let popoverTree {
+                    PluginNodeView(plugin: plugin, node: popoverTree, inPopover: true).frame(minWidth: 220, alignment: .leading)
+                } else if let s = o.popoverSize {
+                    VStack(spacing: 8) {
+                        content(o, size: s, orbit: o.orbit).frame(width: s, height: s)
+                        if let c = o.caption {
+                            Text(c).font(.custom(store.theme.font, size: store.theme.fontSize))
+                                .foregroundStyle(Color(hex: store.theme.label))
+                        }
+                    }
+                }
+            }
+    }
+
+    @ViewBuilder
+    private func content(_ o: SceneOptions, size: CGFloat, orbit: Bool) -> some View {
+        if o.builtin == "globe" {
+            GlobeView(size: size, markers: o.markers, spin: o.spin, showLabels: size > 100, draggable: orbit)
+                .onTapGesture { clicked(nil, o) }
+        } else if let model = o.model, let dir = plugins.directories[plugin] {
+            let url = model.hasPrefix("/") || model.hasPrefix("~") ? GizmoPaths.expand(model) : dir.appendingPathComponent(model)
+            ModelSceneView(url: url, options: o, orbit: orbit,
+                           onClick: { part in clicked(part, o) },
+                           onLoaded: { clips in plugins.dispatch?(plugin, "scene.loaded", ["clips": .array(clips.map(JSONValue.string))]) },
+                           command: plugins.sceneCommands[plugin])
+        } else {
+            Image(systemName: "cube.transparent").font(.system(size: 14, weight: .light))
+        }
+    }
+
+    private func clicked(_ part: String?, _ o: SceneOptions) {
+        plugins.dispatch?(plugin, "scene.click", part.map(JSONValue.string) ?? .null)
+        if let onClick { plugins.invoke?(plugin, onClick, part.map(JSONValue.string) ?? .null) }
+        guard !inPopover else { return }
+        if showing { showing = false; return }
+        if let popover {
+            Task {
+                popoverTree = await plugins.popover?(plugin, popover)
+                showing = true
+            }
+        } else if o.popoverSize != nil {
+            popoverTree = nil
+            showing = true
+        }
     }
 }

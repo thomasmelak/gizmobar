@@ -30,6 +30,10 @@ public final class PluginManager {
     public var onRequest: ((String) -> Void)?
     public var onOpen: ((URL) -> Void)?
     public var onLog: ((String, String, String) -> Void)?
+    /// A plugin loaded from a folder (for model paths).
+    public var onLoaded: ((String, URL) -> Void)?
+    /// `ctx.scene.play/set` from a plugin: (id, "scene.play", payload).
+    public var onScene: ((String, String, JSONValue) -> Void)?
     public private(set) var providerRates: [String: Int] = [:]
 
     private final class Loaded {
@@ -107,7 +111,10 @@ public final class PluginManager {
             use: { [weak self] name, every in Task { @MainActor in self?.use(id, name, every) } },
             subscribe: { [weak self] topic in Task { @MainActor in self?.plugins[id]?.topics.insert(topic) } },
             emit: { [weak self] topic, payload in
-                Task { @MainActor in await self?.bus.publish(topic: "plugin.\(id).\(topic)", payload: payload) }
+                Task { @MainActor in
+                    if topic.hasPrefix("scene.") { self?.onScene?(id, topic, payload) }
+                    await self?.bus.publish(topic: "plugin.\(id).\(topic)", payload: payload)
+                }
             },
             request: { [weak self] name in Task { @MainActor in self?.onRequest?(name) } },
             open: { [weak self] url in Task { @MainActor in self?.onOpen?(url) } },
@@ -116,6 +123,7 @@ public final class PluginManager {
         let runtime = PluginRuntime(directory: dir, manifest: manifest, hooks: hooks)
         let loaded = Loaded(runtime: runtime)
         plugins[id] = loaded
+        onLoaded?(id, dir)
         let config = settings[id] ?? .object([:])
         if let error = await runtime.load(config: config, theme: theme) {
             loaded.error = error
@@ -193,6 +201,15 @@ public final class PluginManager {
         guard let p = plugins[id] else { return }
         Task {
             await p.runtime.invoke(callback, arg)
+            markDirty(id)
+        }
+    }
+
+    /// Delivers a topic to one plugin's `ctx.on` handlers (scene clicks...).
+    public func dispatch(_ id: String, topic: String, payload: JSONValue) {
+        guard let p = plugins[id] else { return }
+        Task {
+            await p.runtime.dispatch(topic: topic, payload: payload)
             markDirty(id)
         }
     }

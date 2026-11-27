@@ -42,22 +42,29 @@ declare module "@gizmobar/sdk" {
     /** A .glb/.gltf/.usdz in the plugin folder, or a built-in scene. */
     model?: string;
     builtin?: "globe";
-    animation?: string;
+    /** A clip name, or a clip with looping and cross-fade seconds. */
+    animation?: string | { clip: string; loop?: boolean; blend?: number };
     look?: "toon" | "pbr" | "unlit";
+    /** Points; clamped to the bar height on the bar. */
     size?: number;
-    spin?: number;
+    /** Degrees per second, or "slow" | "medium" | "fast". */
+    spin?: number | "slow" | "medium" | "fast";
+    camera?: { yaw?: number };
+    /** Per-node overrides by glTF node name. */
+    parts?: Record<string, { visible?: boolean; color?: Color; rotation?: [number, number, number] }>;
+    caption?: string;
     onClick?: () => void;
-    popover?: () => Node;
-    [key: string]: unknown;
+    /** A popover of your own, or a bigger copy of the model you can orbit. */
+    popover?: (() => Node) | { size?: number; orbit?: boolean };
   }
 
   export interface GlobeOptions {
     markers?: { lat: number; lon: number; color?: Color; pulse?: boolean; label?: string }[];
-    arcs?: { from: [number, number]; to: [number, number]; color?: Color }[];
-    spin?: number;
+    spin?: number | "slow" | "medium" | "fast";
     size?: number;
+    caption?: string;
     onClick?: () => void;
-    popover?: () => Node;
+    popover?: (() => Node) | { size?: number; orbit?: boolean };
   }
 
   export const ui: {
@@ -200,3 +207,10 @@ declare module "@gizmobar/sdk" {
   }
 
 }
+
+declare function setTimeout(fn: (...args: unknown[]) => void, ms?: number, ...args: unknown[]): number;
+declare function setInterval(fn: (...args: unknown[]) => void, ms?: number, ...args: unknown[]): number;
+declare function clearTimeout(id?: number): void;
+declare function clearInterval(id?: number): void;
+declare const console: { log(...args: unknown[]): void; warn(...args: unknown[]): void; error(...args: unknown[]): void };
+

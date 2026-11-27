@@ -54,8 +54,14 @@ reaches parity.
 
 ## Phase 5: 3D scene engine
 
-`ui.scene` with glTF/GLB/USDZ, animation clips, per-part changes,
-toon/pbr/unlit, popover view; the globe as a built-in scene.
+- [x] glTF/GLB reader (meshes, materials, node tree, animation clips) and USDZ through RealityKit
+- [x] `ui.scene`: clips with cross-fades, play-once, per-part color/visibility/rotation, part clicks
+- [x] Looks: toon (unlit with outline), pbr, unlit
+- [x] Idle scenes freeze to a snapshot; rendering runs only while animating or orbiting
+- [x] Popover view you can orbit
+- [x] Dot globe as a built-in scene (`ui.globe`, and a `globe` widget): sun-lit day side, markers, pulses
+- [x] Examples: status-pet (with its generated model) and uptime-globe
+- [ ] Measure the GPU cost of an always-animating model on the bar
 
 ## Phase 6: cut over
 

@@ -8,8 +8,19 @@ public enum SDKTypes {
                 .split(separator: "\n", omittingEmptySubsequences: false)
                 .map { $0.isEmpty ? "" : "  " + $0.replacingOccurrences(of: "export declare ", with: "export ") }
                 .joined(separator: "\n")
-            + "\n}\n"
+            + "\n}\n" + globals
     }
+
+    /// What the plugin runtime puts on globalThis (no DOM, no Node).
+    static let globals = """
+
+    declare function setTimeout(fn: (...args: unknown[]) => void, ms?: number, ...args: unknown[]): number;
+    declare function setInterval(fn: (...args: unknown[]) => void, ms?: number, ...args: unknown[]): number;
+    declare function clearTimeout(id?: number): void;
+    declare function clearInterval(id?: number): void;
+    declare const console: { log(...args: unknown[]): void; warn(...args: unknown[]): void; error(...args: unknown[]): void };
+
+    """
 
     static let body = #"""
 export type Color = `#${string}` | `theme.${string}`;
@@ -55,22 +66,29 @@ export interface SceneOptions {
   /** A .glb/.gltf/.usdz in the plugin folder, or a built-in scene. */
   model?: string;
   builtin?: "globe";
-  animation?: string;
+  /** A clip name, or a clip with looping and cross-fade seconds. */
+  animation?: string | { clip: string; loop?: boolean; blend?: number };
   look?: "toon" | "pbr" | "unlit";
+  /** Points; clamped to the bar height on the bar. */
   size?: number;
-  spin?: number;
+  /** Degrees per second, or "slow" | "medium" | "fast". */
+  spin?: number | "slow" | "medium" | "fast";
+  camera?: { yaw?: number };
+  /** Per-node overrides by glTF node name. */
+  parts?: Record<string, { visible?: boolean; color?: Color; rotation?: [number, number, number] }>;
+  caption?: string;
   onClick?: () => void;
-  popover?: () => Node;
-  [key: string]: unknown;
+  /** A popover of your own, or a bigger copy of the model you can orbit. */
+  popover?: (() => Node) | { size?: number; orbit?: boolean };
 }
 
 export interface GlobeOptions {
   markers?: { lat: number; lon: number; color?: Color; pulse?: boolean; label?: string }[];
-  arcs?: { from: [number, number]; to: [number, number]; color?: Color }[];
-  spin?: number;
+  spin?: number | "slow" | "medium" | "fast";
   size?: number;
+  caption?: string;
   onClick?: () => void;
-  popover?: () => Node;
+  popover?: (() => Node) | { size?: number; orbit?: boolean };
 }
 
 export declare const ui: {

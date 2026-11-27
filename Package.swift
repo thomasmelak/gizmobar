@@ -40,7 +40,7 @@ let package = Package(
             linkerSettings: [.linkedFramework("JavaScriptCore")]
         ),
         // 3D scene engine contract (Phase 5: RealityKit, Metal fallback).
-        .target(name: "GizmoScene", dependencies: ["GizmoCore"]),
+        .target(name: "GizmoScene", dependencies: ["GizmoCore"], linkerSettings: [.linkedFramework("RealityKit")]),
         // Panels, SwiftUI widgets, icon rendering.
         .target(name: "GizmoUI", dependencies: ["GizmoCore", "GizmoProviders", "GizmoScene"]),
         .executableTarget(
@@ -50,5 +50,6 @@ let package = Package(
         .executableTarget(name: "gizmo", dependencies: ["GizmoCore", "GizmoIPC"]),
         .testTarget(name: "GizmoCoreTests", dependencies: ["GizmoCore", "GizmoProviders"]),
         .testTarget(name: "GizmoPluginsTests", dependencies: ["GizmoCore", "GizmoPlugins"]),
+        .testTarget(name: "GizmoSceneTests", dependencies: ["GizmoCore", "GizmoScene"]),
     ]
 )
