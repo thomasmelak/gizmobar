@@ -52,7 +52,7 @@ public final class PanelManager {
             let y = bar.position == .bottom ? f.minY : f.maxY - bar.height
             let frame = NSRect(x: f.minX, y: y, width: f.width, height: bar.height)
             let panel = BarPanel(frame: frame)
-            let root = BarView().environment(store)
+            let root = BarView().environment(store).environment(store.plugins)
             panel.contentView = NSHostingView(rootView: root)
             panel.setFrame(frame, display: false)
             panel.orderFrontRegardless()

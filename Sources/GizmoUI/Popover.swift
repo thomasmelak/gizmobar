@@ -37,6 +37,7 @@ final class PopoverController {
             .font(.custom(t.font, size: t.fontSize))
             .foregroundStyle(Color(hex: t.label))
             .environment(store)
+            .environment(store.plugins)
             .fixedSize()
 
         let host = NSHostingController(rootView: content)

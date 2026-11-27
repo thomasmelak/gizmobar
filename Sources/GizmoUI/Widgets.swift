@@ -127,6 +127,17 @@ struct MissingWidget: View {
     }
 }
 
+/// A layout id that isn't built in: a plugin with that id, or a marker.
+struct PluginOrMissing: View {
+    let id: String
+    @Environment(PluginStore.self) private var plugins
+
+    var body: some View {
+        let pid = id.hasPrefix("plugin:") ? String(id.dropFirst(7)) : id
+        if plugins.trees[pid] != nil { PluginWidget(id: pid) } else { MissingWidget(id: id) }
+    }
+}
+
 enum WidgetRegistry {
     @MainActor @ViewBuilder
     static func view(for id: String) -> some View {
@@ -142,7 +153,7 @@ enum WidgetRegistry {
         case "volume": VolumeWidget()
         case "theme": ThemeWidget()
         case "now_playing": NowPlayingWidget()
-        default: MissingWidget(id: id)
+        default: PluginOrMissing(id: id)
         }
     }
 }

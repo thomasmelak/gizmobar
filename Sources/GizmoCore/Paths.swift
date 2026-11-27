@@ -18,7 +18,10 @@ public enum GizmoPaths {
 
     /// `~/Library/Application Support/Gizmobar`: state the bar keeps for itself.
     public static var stateDir: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        if let override = ProcessInfo.processInfo.environment["GIZMOBAR_STATE_DIR"], !override.isEmpty {
+            return URL(fileURLWithPath: (override as NSString).expandingTildeInPath, isDirectory: true)
+        }
+        return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Gizmobar", isDirectory: true)
     }
 

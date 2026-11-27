@@ -12,6 +12,8 @@ public final class BarStore {
     public var config: GizmoConfig
     public var theme: Theme
     public var icons: IconResolver
+    /// Plugin widget trees.
+    @ObservationIgnored public let plugins = PluginStore()
     /// Themes the picker offers; refreshed by the app when it opens.
     public var themes: [ThemeEntry] = []
 

@@ -553,3 +553,79 @@ struct MediaTests {
         #expect(try GizmoConfig.parse("").layout.right.first == "now_playing")
     }
 }
+
+@Suite("PluginProviders")
+struct PluginProvidersTests {
+    func populated() -> BarSnapshot {
+        var s = BarSnapshot()
+        s.system = SystemStats(cpu: 0.5, gpu: 0.1, temperature: 50, ramUsed: 1, ramTotal: 2, swapUsed: 0, swapTotal: 0, diskUsed: 1, diskTotal: 2, lidAngle: nil)
+        s.battery = BatteryStatus(percent: 80, external: false, charging: false, full: false, lowPower: false, minutesToEmpty: 90, minutesToFull: nil, rateMilliwatts: -5000)
+        s.audio = AudioStatus(volume: 40, muted: false, devices: [])
+        s.displays = DisplaysStatus(displays: [DisplayState(id: 1, name: "Built-in", isBuiltIn: true, isMain: true, control: .builtin, brightness: 50)])
+        return s
+    }
+
+    /// Every provider emits exactly the keys its spec (and so the TS types) declares.
+    @Test func valuesMatchSpecs() throws {
+        let s = populated()
+        for spec in PluginProviders.specs {
+            let v = try #require(PluginProviders.value(spec.name, from: s), "\(spec.name)")
+            let obj: JSONValue = spec.isList ? try #require(v.array?.first) : v
+            guard case .object(let o) = obj else { Issue.record("\(spec.name) is not an object"); continue }
+            #expect(Set(o.keys) == Set(spec.fields.map(\.name)), "\(spec.name)")
+        }
+    }
+
+    @Test func typescriptAndTopics() {
+        let ts = PluginProviders.typescript
+        #expect(ts.contains("export interface Providers {"))
+        #expect(ts.contains("  displays: {"))
+        #expect(ts.contains("}[];"))
+        #expect(PluginProviders.providers(for: Topic.systemStats) == ["cpu", "memory"])
+        #expect(PluginProviders.providers(for: "aerospace.snapshot") == ["workspaces"])
+    }
+}
+
+@Suite("PluginNode")
+struct PluginNodeTests {
+    @Test func parsesTreeWithCallbacks() throws {
+        let json = #"{"kind":"pill","onClick":{"$fn":3},"child":{"kind":"row","gap":6,"children":[{"kind":"icon","name":"cpu","color":"theme.accent"},{"kind":"text","text":"42%"}]}}"#
+        let node = PluginNode.parse(try JSONValue(parsing: Data(json.utf8)))
+        guard case .pill(let child, false, .some(3), nil) = node, case .row(let kids, .some(6)) = child else {
+            Issue.record("unexpected \(node)"); return
+        }
+        #expect(kids == [.icon("cpu", color: "theme.accent", size: nil), .text("42%", color: nil, size: nil, marquee: false, mono: false)])
+        #expect(PluginNode.color("theme.accent", theme: ["accent": "#b77cff"]) == "#b77cff")
+        #expect(PluginNode.parse(.string("x")) == .error("not a node"))
+        #expect(PluginNode.parse(["kind": "nope"]) == .error("unknown node nope"))
+    }
+
+    @Test func budgetPausesAfterOverruns() {
+        var s = RenderStats()
+        for _ in 0..<4 { s.record(3) }
+        s.record(1)
+        #expect(!s.paused)
+        for _ in 0..<5 { s.record(3) }
+        #expect(s.paused)
+        #expect(s.overruns == 9)
+        #expect(s.renders == 10)
+    }
+}
+
+@Suite("SDKTypes")
+struct SDKTypesTests {
+    /// sdk/src/providers.ts must be regenerated when providers change:
+    /// `gizmo types --sdk > sdk/src/providers.ts`.
+    @Test func sdkProvidersAreGenerated() throws {
+        let file = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().appendingPathComponent("sdk/src/providers.ts")
+        #expect(try String(contentsOf: file, encoding: .utf8) == PluginProviders.typescriptModule)
+    }
+
+    @Test func declarationWrapsModule() {
+        let d = SDKTypes.declaration
+        #expect(d.hasPrefix("declare module \"@gizmobar/sdk\" {\n"))
+        #expect(d.contains("  export interface Providers {"))
+        #expect(!d.contains("export declare"))
+    }
+}
