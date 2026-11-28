@@ -270,12 +270,38 @@ private struct LiveScenePopover<Scene: View>: View {
             VStack(spacing: 8) {
                 scene(o, s).frame(width: s, height: s)
                 if let c = o.caption {
-                    Text(c).font(.custom(store.theme.font, size: store.theme.fontSize))
-                        .foregroundStyle(Color(hex: store.theme.label))
-                        .shadow(color: .black.opacity(0.8), radius: 3)
-                        .shadow(color: .black.opacity(0.5), radius: 8)
+                    SceneCaption(text: c).frame(width: s)
                 }
             }
         }
+    }
+}
+
+/// The line under a floating model: at most two lines at the model's width,
+/// shown when it changes or on hover, then faded out.
+private struct SceneCaption: View {
+    let text: String
+    @Environment(BarStore.self) private var store
+    @State private var shown = true
+    @State private var hovering = false
+
+    var body: some View {
+        Text(text).font(.custom(store.theme.font, size: store.theme.fontSize))
+            .foregroundStyle(Color(hex: store.theme.label))
+            .lineLimit(2)
+            .truncationMode(.tail)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .shadow(color: .black.opacity(0.8), radius: 3)
+            .shadow(color: .black.opacity(0.5), radius: 8)
+            .opacity(shown || hovering ? 1 : 0)
+            .animation(.easeInOut(duration: 0.4), value: shown || hovering)
+            .onHover { hovering = $0 }
+            // Numbers (CPU, battery) change often; only a new message shows it again.
+            .task(id: text.filter { !$0.isNumber }) {
+                shown = true
+                try? await Task.sleep(for: .seconds(4))
+                if !Task.isCancelled { shown = false }
+            }
     }
 }
