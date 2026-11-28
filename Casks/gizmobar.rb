@@ -1,6 +1,6 @@
 cask "gizmobar" do
-  version "0.1.0"
-  sha256 "ad362c5bcefb95ccf48239395ae2e93c27e0359cb09a2b937f0cbe094b279e0f"
+  version "0.2.0"
+  sha256 "3d04b2f962a2e2b74e8a20fd85f38ddb4695c065d067d297851a8eda7c779f66"
 
   url "https://github.com/thomasmelak/gizmobar/releases/download/v#{version}/Gizmobar.zip"
   name "Gizmobar"
