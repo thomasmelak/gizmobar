@@ -23,7 +23,9 @@ final class PopoverController {
     func isOpen(_ id: String) -> Bool { open[id] != nil }
     var anyOpen: Bool { !open.isEmpty }
 
-    func show(id: String, anchor: NSView, store: BarStore, root: AnyView, onClose: @escaping () -> Void) {
+    /// `chrome: false` drops the glass, fill and border, so the content
+    /// floats on its own (a plugin's 3D model).
+    func show(id: String, anchor: NSView, store: BarStore, root: AnyView, chrome: Bool = true, onClose: @escaping () -> Void) {
         close(id: id)
         closeUnpinned()
         guard let anchorWindow = anchor.window, let screen = anchorWindow.screen else {
@@ -36,13 +38,15 @@ final class PopoverController {
         let content = root
             .padding(12)
             .background {
-                ZStack {
-                    GlassBackground(cornerRadius: t.cornerRadius + 4, enabled: store.config.bar.glass)
-                    shape.fill(Color(hex: t.popupBackground))
+                if chrome {
+                    ZStack {
+                        GlassBackground(cornerRadius: t.cornerRadius + 4, enabled: store.config.bar.glass)
+                        shape.fill(Color(hex: t.popupBackground))
+                    }
+                    .clipShape(shape)
                 }
-                .clipShape(shape)
             }
-            .overlay(shape.strokeBorder(Color(hex: t.popupBorder).opacity(0.6), lineWidth: 1))
+            .overlay { if chrome { shape.strokeBorder(Color(hex: t.popupBorder).opacity(0.6), lineWidth: 1) } }
             .modifier(CornerPin())
             .font(.custom(t.font, size: t.fontSize))
             .foregroundStyle(Color(hex: t.label))
@@ -55,6 +59,7 @@ final class PopoverController {
         host.sizingOptions = [.preferredContentSize]
         let p = PopoverPanel()
         p.contentViewController = host
+        p.hasShadow = chrome
         p.layoutIfNeeded()
         let size = host.view.fittingSize
 
@@ -163,6 +168,7 @@ struct AnchorView: NSViewRepresentable {
 
 private struct BarPopoverModifier<P: View>: ViewModifier {
     let id: String
+    var chrome = true
     @Binding var isPresented: Bool
     let popover: () -> P
     @Environment(BarStore.self) private var store
@@ -176,7 +182,7 @@ private struct BarPopoverModifier<P: View>: ViewModifier {
             }
             .onChange(of: isPresented) { _, shown in
                 if shown, let view = anchor.view {
-                    PopoverController.shared.show(id: id, anchor: view, store: store, root: AnyView(popover())) {
+                    PopoverController.shared.show(id: id, anchor: view, store: store, root: AnyView(popover()), chrome: chrome) {
                         isPresented = false
                     }
                 } else if !shown {
@@ -188,8 +194,8 @@ private struct BarPopoverModifier<P: View>: ViewModifier {
 
 extension View {
     /// Shows `content` in an anchored popover panel while `isPresented`.
-    func barPopover<P: View>(id: String, isPresented: Binding<Bool>, @ViewBuilder content: @escaping () -> P) -> some View {
-        modifier(BarPopoverModifier(id: id, isPresented: isPresented, popover: content))
+    func barPopover<P: View>(id: String, isPresented: Binding<Bool>, chrome: Bool = true, @ViewBuilder content: @escaping () -> P) -> some View {
+        modifier(BarPopoverModifier(id: id, chrome: chrome, isPresented: isPresented, popover: content))
     }
 }
 
